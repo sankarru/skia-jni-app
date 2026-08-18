@@ -106,6 +106,7 @@ $TOOLCHAIN_DIR/${TRIPLE}-clang++ -shared \
     -o "$JNI_SO" "$JNI_OBJ" \
     -L"$SKIA_OUT" -lskia \
     -llog -landroid -ldl -lm -lz \
+    -static-libstdc++ \
     -Wl,--gc-sections -Wl,--strip-all
 
 echo ">>> Done: $JNI_SO ($(du -h "$JNI_SO" | cut -f1))"
