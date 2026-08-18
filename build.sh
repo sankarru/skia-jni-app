@@ -62,8 +62,8 @@ GN_ARGS=(
     ndk_host="linux-x86_64"
 )
 
-echo ">>> Generating GN build files..."
-python3 bin/gn gen out/android-arm64 --args="${GN_ARGS[*]}"
+echo ">>> Generating GN build files (gn from depot_tools)..."
+gn gen out/android-arm64 --args="${GN_ARGS[*]}"
 
 echo ">>> Building libskia.a (parallel=$JOBS)..."
 ninja -C out/android-arm64 -j"$JOBS" skia
