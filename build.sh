@@ -28,10 +28,17 @@ fi
 cd "$SKIA_DIR"
 
 # ── 3. Sync deps ───────────────────────────────────────────────────
-if [ ! -d "third_party/externals/harfbuzz" ]; then
-    echo ">>> Syncing third-party deps..."
-    python3 tools/git-sync-deps
-fi
+echo ">>> Syncing third-party deps..."
+python3 tools/git-sync-deps
+cd "$SKIA_DIR"
+# guard against empty/clobbered externals from previous partial sync
+for d in freetype harfbuzz icu zlib libpng libjpeg-turbo libwebp; do
+    if [ ! -d "third_party/externals/$d" ] || [ -z "$(ls -A third_party/externals/$d 2>/dev/null)" ]; then
+        echo ">>> Re-syncing (missing $d)..."
+        python3 tools/git-sync-deps
+        break
+    fi
+done
 
 # ── 4. Build Skia static lib ───────────────────────────────────────
 TOOLCHAIN_DIR="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
@@ -40,36 +47,32 @@ echo ">>> Fetching gn binary..."
 python3 bin/fetch-gn
 
 echo ">>> Generating GN build files..."
-# GN requires quoted values for strings with special chars (/, -)
-# Use --args-file to avoid shell/array quoting issues.
-ARGS_FILE="$SCRIPT_DIR/build/gn.args"
-mkdir -p "$SCRIPT_DIR/build"
-: > "$ARGS_FILE"
-printf 'is_official_build=true\n'                    >> "$ARGS_FILE"
-printf 'is_debug=false\n'                            >> "$ARGS_FILE"
-printf 'target_os="android"\n'                       >> "$ARGS_FILE"
-printf 'target_cpu="arm64"\n'                        >> "$ARGS_FILE"
-printf 'skia_use_system_freetype2=false\n'           >> "$ARGS_FILE"
-printf 'skia_use_system_harfbuzz=false\n'            >> "$ARGS_FILE"
-printf 'skia_use_system_icu=false\n'                 >> "$ARGS_FILE"
-printf 'skia_use_system_libjpeg_turbo=false\n'       >> "$ARGS_FILE"
-printf 'skia_use_system_libpng=false\n'              >> "$ARGS_FILE"
-printf 'skia_use_system_zlib=false\n'                >> "$ARGS_FILE"
-printf 'skia_enable_gpu=true\n'                      >> "$ARGS_FILE"
-printf 'skia_enable_graphite=true\n'                 >> "$ARGS_FILE"
-printf 'skia_use_vulkan=true\n'                      >> "$ARGS_FILE"
-printf 'skia_enable_skottie=false\n'                 >> "$ARGS_FILE"
-printf 'skia_enable_svg=false\n'                     >> "$ARGS_FILE"
-printf 'skia_enable_tools=false\n'                   >> "$ARGS_FILE"
-printf 'skia_enable_pdf=false\n'                     >> "$ARGS_FILE"
-printf 'skia_use_gl=false\n'                         >> "$ARGS_FILE"
-printf 'skia_use_egl=false\n'                        >> "$ARGS_FILE"
-printf 'ndk="%s"\n'    "$NDK"                        >> "$ARGS_FILE"
-printf 'ndk_api=%s\n'  "$API"                        >> "$ARGS_FILE"
-printf 'ndk_target="%s"\n' "$TARGET"                 >> "$ARGS_FILE"
-printf 'ndk_host="linux-x86_64"\n'                   >> "$ARGS_FILE"
+# GN --args needs quoted string values; construct explicitly to preserve quotes.
+ARGS_STR="is_official_build=true"
+ARGS_STR="$ARGS_STR is_debug=false"
+ARGS_STR="$ARGS_STR target_os=\"android\""
+ARGS_STR="$ARGS_STR target_cpu=\"arm64\""
+ARGS_STR="$ARGS_STR skia_use_system_freetype2=false"
+ARGS_STR="$ARGS_STR skia_use_system_harfbuzz=false"
+ARGS_STR="$ARGS_STR skia_use_system_icu=false"
+ARGS_STR="$ARGS_STR skia_use_system_libjpeg_turbo=false"
+ARGS_STR="$ARGS_STR skia_use_system_libpng=false"
+ARGS_STR="$ARGS_STR skia_use_system_zlib=false"
+ARGS_STR="$ARGS_STR skia_enable_gpu=true"
+ARGS_STR="$ARGS_STR skia_enable_graphite=true"
+ARGS_STR="$ARGS_STR skia_use_vulkan=true"
+ARGS_STR="$ARGS_STR skia_enable_skottie=false"
+ARGS_STR="$ARGS_STR skia_enable_svg=false"
+ARGS_STR="$ARGS_STR skia_enable_tools=false"
+ARGS_STR="$ARGS_STR skia_enable_pdf=false"
+ARGS_STR="$ARGS_STR skia_use_gl=false"
+ARGS_STR="$ARGS_STR skia_use_egl=false"
+ARGS_STR="$ARGS_STR ndk=\"$NDK\""
+ARGS_STR="$ARGS_STR ndk_api=$API"
+ARGS_STR="$ARGS_STR ndk_target=\"$TARGET\""
+ARGS_STR="$ARGS_STR ndk_host=\"linux-x86_64\""
 
-bin/gn gen out/android-arm64 --args-file="$ARGS_FILE"
+bin/gn gen out/android-arm64 --args="$ARGS_STR"
 
 echo ">>> Building libskia.a (parallel=$JOBS)..."
 ninja -C out/android-arm64 -j"$JOBS" skia
