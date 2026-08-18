@@ -35,38 +35,41 @@ fi
 
 # ── 4. Build Skia static lib ───────────────────────────────────────
 TOOLCHAIN_DIR="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
-GN_ARGS=(
-    is_official_build=true
-    is_debug=false
-    target_os="android"
-    target_cpu="arm64"
-    skia_use_system_freetype2=false
-    skia_use_system_harfbuzz=false
-    skia_use_system_icu=false
-    skia_use_system_libjpeg_turbo=false
-    skia_use_system_libpng=false
-    skia_use_system_zlib=false
-    skia_enable_gpu=true
-    skia_enable_graphite=true
-    skia_use_vulkan=true
-    skia_enable_skottie=false
-    skia_enable_svg=false
-    skia_enable_tools=false
-    skia_enable_pdf=false
-    skia_enable_skottie=false
-    skia_use_gl=false
-    skia_use_egl=false
-    ndk="$NDK"
-    ndk_api="$API"
-    ndk_target="$TARGET"
-    ndk_host="linux-x86_64"
-)
 
 echo ">>> Fetching gn binary..."
 python3 bin/fetch-gn
 
 echo ">>> Generating GN build files..."
-bin/gn gen out/android-arm64 --args="${GN_ARGS[*]}"
+# GN requires quoted values for strings with special chars (/, -)
+# Use --args-file to avoid shell/array quoting issues.
+ARGS_FILE="$SCRIPT_DIR/build/gn.args"
+mkdir -p "$SCRIPT_DIR/build"
+: > "$ARGS_FILE"
+printf 'is_official_build=true\n'                    >> "$ARGS_FILE"
+printf 'is_debug=false\n'                            >> "$ARGS_FILE"
+printf 'target_os="android"\n'                       >> "$ARGS_FILE"
+printf 'target_cpu="arm64"\n'                        >> "$ARGS_FILE"
+printf 'skia_use_system_freetype2=false\n'           >> "$ARGS_FILE"
+printf 'skia_use_system_harfbuzz=false\n'            >> "$ARGS_FILE"
+printf 'skia_use_system_icu=false\n'                 >> "$ARGS_FILE"
+printf 'skia_use_system_libjpeg_turbo=false\n'       >> "$ARGS_FILE"
+printf 'skia_use_system_libpng=false\n'              >> "$ARGS_FILE"
+printf 'skia_use_system_zlib=false\n'                >> "$ARGS_FILE"
+printf 'skia_enable_gpu=true\n'                      >> "$ARGS_FILE"
+printf 'skia_enable_graphite=true\n'                 >> "$ARGS_FILE"
+printf 'skia_use_vulkan=true\n'                      >> "$ARGS_FILE"
+printf 'skia_enable_skottie=false\n'                 >> "$ARGS_FILE"
+printf 'skia_enable_svg=false\n'                     >> "$ARGS_FILE"
+printf 'skia_enable_tools=false\n'                   >> "$ARGS_FILE"
+printf 'skia_enable_pdf=false\n'                     >> "$ARGS_FILE"
+printf 'skia_use_gl=false\n'                         >> "$ARGS_FILE"
+printf 'skia_use_egl=false\n'                        >> "$ARGS_FILE"
+printf 'ndk="%s"\n'    "$NDK"                        >> "$ARGS_FILE"
+printf 'ndk_api=%s\n'  "$API"                        >> "$ARGS_FILE"
+printf 'ndk_target="%s"\n' "$TARGET"                 >> "$ARGS_FILE"
+printf 'ndk_host="linux-x86_64"\n'                   >> "$ARGS_FILE"
+
+bin/gn gen out/android-arm64 --args-file="$ARGS_FILE"
 
 echo ">>> Building libskia.a (parallel=$JOBS)..."
 ninja -C out/android-arm64 -j"$JOBS" skia
