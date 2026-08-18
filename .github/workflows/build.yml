@@ -40,5 +40,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: libskia_jni-aarch64
-          path: app/src/main/native/libs/libskia_jni.so
+          path: libs/libskia_jni.so
           if-no-files-found: error
