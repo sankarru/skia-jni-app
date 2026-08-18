@@ -32,13 +32,19 @@ echo ">>> Syncing third-party deps..."
 python3 tools/git-sync-deps
 cd "$SKIA_DIR"
 # guard against empty/clobbered externals from previous partial sync
-for d in freetype harfbuzz icu zlib libpng libjpeg-turbo libwebp; do
+for d in freetype harfbuzz icu zlib libpng libjpeg-turbo libwebp expat; do
     if [ ! -d "third_party/externals/$d" ] || [ -z "$(ls -A third_party/externals/$d 2>/dev/null)" ]; then
         echo ">>> Re-syncing (missing $d)..."
         python3 tools/git-sync-deps
         break
     fi
 done
+# Expat is prone to cloning as an empty repo via git-sync-deps; clone manually if needed.
+if [ ! -f "third_party/externals/expat/lib/expat.h" ]; then
+    echo ">>> Cloning expat manually..."
+    rm -rf third_party/externals/expat
+    git clone --depth 1 https://github.com/libexpat/libexpat.git third_party/externals/expat
+fi
 
 # ── 4. Build Skia static lib ───────────────────────────────────────
 TOOLCHAIN_DIR="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
