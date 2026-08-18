@@ -105,7 +105,7 @@ $TOOLCHAIN_DIR/${TRIPLE}-clang++ $CXXFLAGS -c "$JNI_SRC" -o "$JNI_OBJ"
 $TOOLCHAIN_DIR/${TRIPLE}-clang++ -shared \
     -o "$JNI_SO" "$JNI_OBJ" \
     -L"$SKIA_OUT" -lskia \
-    -llog -landroid -lvulkan -lm -lz \
+    -llog -landroid -ldl -lm -lz \
     -Wl,--gc-sections -Wl,--strip-all
 
 echo ">>> Done: $JNI_SO ($(du -h "$JNI_SO" | cut -f1))"

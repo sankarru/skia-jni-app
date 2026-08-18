@@ -1,6 +1,8 @@
 #include <jni.h>
 #include <cstdio>
 #include <vector>
+#include <map>
+#include <dlfcn.h>
 
 // ── Skia core ──────────────────────────────────────────────────────
 #include "include/core/SkCanvas.h"
@@ -42,6 +44,7 @@ struct NativeCanvas {
 
 struct VulkanCtx {
     sk_sp<GrDirectContext> grContext;
+    sk_sp<skgpu::VulkanMemoryAllocator> allocator;
     VkDevice device;
 };
 
@@ -154,15 +157,139 @@ Java_com_example_skiajni_SkiaCanvas_nSaveToFile(JNIEnv* env, jclass, jlong h, js
 // Vulkan backend
 // ====================================================================
 
-static VkPhysicalDeviceMemoryProperties sMemProps;
+// Minimal VulkanMemoryAllocator — allocates each request as its own
+// VkDeviceMemory chunk via vkAllocateMemory (loaded at runtime).
+class SimpleVulkanAllocator : public skgpu::VulkanMemoryAllocator {
+public:
+    SimpleVulkanAllocator(VkDevice device, VkPhysicalDevice physDev,
+                          void* vkLib)
+        : fDevice(device), fPhysDev(physDev) {
+        fVkAllocateMemory = reinterpret_cast<PFN_vkAllocateMemory>(
+            dlsym(vkLib, "vkAllocateMemory"));
+        fVkFreeMemory = reinterpret_cast<PFN_vkFreeMemory>(
+            dlsym(vkLib, "vkFreeMemory"));
+        fVkMapMemory = reinterpret_cast<PFN_vkMapMemory>(
+            dlsym(vkLib, "vkMapMemory"));
+        fVkUnmapMemory = reinterpret_cast<PFN_vkUnmapMemory>(
+            dlsym(vkLib, "vkUnmapMemory"));
+        fVkGetBufferMemoryRequirements = reinterpret_cast<PFN_vkGetBufferMemoryRequirements>(
+            dlsym(vkLib, "vkGetBufferMemoryRequirements"));
+        fVkGetImageMemoryRequirements = reinterpret_cast<PFN_vkGetImageMemoryRequirements>(
+            dlsym(vkLib, "vkGetImageMemoryRequirements"));
+        fVkGetPhysicalDeviceMemoryProperties = reinterpret_cast<PFN_vkGetPhysicalDeviceMemoryProperties>(
+            dlsym(vkLib, "vkGetPhysicalDeviceMemoryProperties"));
+
+        fVkGetPhysicalDeviceMemoryProperties(fPhysDev, &fMemProps);
+    }
+
+    VkResult allocateImageMemory(VkImage image, uint32_t,
+                                 skgpu::VulkanBackendMemory* memory) override {
+        VkMemoryRequirements reqs;
+        fVkGetImageMemoryRequirements(fDevice, image, &reqs);
+        return alloc(reqs, memory);
+    }
+
+    VkResult allocateBufferMemory(VkBuffer buffer, BufferUsage,
+                                  uint32_t, skgpu::VulkanBackendMemory* memory) override {
+        VkMemoryRequirements reqs;
+        fVkGetBufferMemoryRequirements(fDevice, buffer, &reqs);
+        return alloc(reqs, memory);
+    }
+
+    void getAllocInfo(const skgpu::VulkanBackendMemory& memory,
+                      skgpu::VulkanAlloc* alloc) const override {
+        auto it = fAllocs.find(memory);
+        if (it != fAllocs.end()) *alloc = it->second;
+    }
+
+    void* mapMemory(const skgpu::VulkanBackendMemory& memory) override {
+        auto it = fAllocs.find(memory);
+        if (it == fAllocs.end()) return nullptr;
+        void* data = nullptr;
+        if (fVkMapMemory(fDevice, it->second.fMemory, it->second.fOffset,
+                         it->second.fSize, 0, &data) != VK_SUCCESS) return nullptr;
+        return data;
+    }
+
+    void unmapMemory(const skgpu::VulkanBackendMemory& memory) override {
+        auto it = fAllocs.find(memory);
+        if (it != fAllocs.end()) fVkUnmapMemory(fDevice, it->second.fMemory);
+    }
+
+    void freeMemory(const skgpu::VulkanBackendMemory& memory) override {
+        auto it = fAllocs.find(memory);
+        if (it != fAllocs.end()) {
+            fVkFreeMemory(fDevice, it->second.fMemory, nullptr);
+            fAllocs.erase(it);
+        }
+    }
+
+    std::pair<uint64_t, uint64_t> totalAllocatedAndUsedMemory() const override {
+        uint64_t total = 0;
+        for (const auto& [k, v] : fAllocs) total += v.fSize;
+        return {total, total};
+    }
+
+private:
+    VkResult alloc(const VkMemoryRequirements& reqs,
+                   skgpu::VulkanBackendMemory* memory) {
+        // Pick a memory type: prefer device-local, fall back to any usable type.
+        uint32_t typeIndex = 0;
+        bool found = false;
+        for (uint32_t i = 0; i < fMemProps.memoryTypeCount; i++) {
+            if (reqs.memoryTypeBits & (1u << i)) {
+                typeIndex = i;
+                found = true;
+                if (fMemProps.memoryTypes[i].propertyFlags &
+                        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) {
+                    break;  // prefer device-local
+                }
+            }
+        }
+        if (!found) return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+
+        VkMemoryAllocateInfo info{};
+        info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        info.allocationSize = reqs.size;
+        info.memoryTypeIndex = typeIndex;
+
+        VkDeviceMemory mem;
+        if (fVkAllocateMemory(fDevice, &info, nullptr, &mem) != VK_SUCCESS)
+            return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+
+        intptr_t key = reinterpret_cast<intptr_t>(mem);
+        skgpu::VulkanAlloc alloc;
+        alloc.fMemory = mem;
+        alloc.fOffset = 0;
+        alloc.fSize = reqs.size;
+        alloc.fBackendMemory = key;
+        fAllocs[key] = alloc;
+        *memory = key;
+        return VK_SUCCESS;
+    }
+
+    VkDevice fDevice;
+    VkPhysicalDevice fPhysDev;
+    VkPhysicalDeviceMemoryProperties fMemProps{};
+    std::map<intptr_t, skgpu::VulkanAlloc> fAllocs;
+
+    PFN_vkAllocateMemory fVkAllocateMemory;
+    PFN_vkFreeMemory fVkFreeMemory;
+    PFN_vkMapMemory fVkMapMemory;
+    PFN_vkUnmapMemory fVkUnmapMemory;
+    PFN_vkGetBufferMemoryRequirements fVkGetBufferMemoryRequirements;
+    PFN_vkGetImageMemoryRequirements fVkGetImageMemoryRequirements;
+    PFN_vkGetPhysicalDeviceMemoryProperties fVkGetPhysicalDeviceMemoryProperties;
+};
 
 JNIEXPORT jlong JNICALL
 Java_com_example_skiajni_SkiaCanvas_createVulkanContext(JNIEnv*, jclass,
         jlong vkInstance, jlong vkPhysDev, jlong vkDevice,
         jlong vkQueue, jint queueFamily, jint apiVersion) {
 
-    vkGetPhysicalDeviceMemoryProperties(
-        reinterpret_cast<VkPhysicalDevice>(vkPhysDev), &sMemProps);
+    // Load the Vulkan loader at runtime (device library, not available in NDK).
+    void* vkLib = dlopen("libvulkan.so", RTLD_NOW | RTLD_GLOBAL);
+    if (!vkLib) return 0;
 
     // Build backend context
     skgpu::VulkanBackendContext backend{};
@@ -172,11 +299,36 @@ Java_com_example_skiajni_SkiaCanvas_createVulkanContext(JNIEnv*, jclass,
     backend.fQueue            = reinterpret_cast<VkQueue>(vkQueue);
     backend.fGraphicsQueueIndex = queueFamily;
     backend.fMaxAPIVersion    = apiVersion;
-
-    auto grContext = GrDirectContexts::MakeVulkan(backend);
-    if (!grContext) return 0;
+    backend.fGetProc          = [vkLib](const char* name,
+                                        VkInstance instance,
+                                        VkDevice device) -> PFN_vkVoidFunction {
+        if (device) {
+            auto vkGetDeviceProcAddr = reinterpret_cast<PFN_vkGetDeviceProcAddr>(
+                dlsym(vkLib, "vkGetDeviceProcAddr"));
+            if (vkGetDeviceProcAddr) {
+                PFN_vkVoidFunction fn = vkGetDeviceProcAddr(device, name);
+                if (fn) return fn;
+            }
+        }
+        auto vkGetInstanceProcAddr = reinterpret_cast<PFN_vkGetInstanceProcAddr>(
+            dlsym(vkLib, "vkGetInstanceProcAddr"));
+        if (vkGetInstanceProcAddr && instance) {
+            return vkGetInstanceProcAddr(instance, name);
+        }
+        return reinterpret_cast<PFN_vkVoidFunction>(dlsym(vkLib, name));
+    };
 
     auto vCtx = new VulkanCtx();
+    vCtx->allocator = sk_make_sp<SimpleVulkanAllocator>(
+        backend.fDevice, backend.fPhysicalDevice, vkLib);
+    backend.fMemoryAllocator = vCtx->allocator;
+
+    auto grContext = GrDirectContexts::MakeVulkan(backend);
+    if (!grContext) {
+        delete vCtx;
+        return 0;
+    }
+
     vCtx->grContext = std::move(grContext);
     vCtx->device = backend.fDevice;
 
