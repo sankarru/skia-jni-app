@@ -160,9 +160,7 @@ Java_com_example_skiajni_SkiaCanvas_nGetPixels(JNIEnv* env, jclass, jlong h) {
     auto nc = reinterpret_cast<NativeCanvas*>(h);
     if (!nc || !nc->surface) return nullptr;
 
-    auto img = nc->surface->peekPixels()
-        ? nc->surface->makeImageSnapshot()
-        : nullptr;
+    auto img = nc->surface->makeImageSnapshot();
     if (!img) return nullptr;
 
     SkImageInfo info = SkImageInfo::Make(nc->width, nc->height,
@@ -172,7 +170,8 @@ Java_com_example_skiajni_SkiaCanvas_nGetPixels(JNIEnv* env, jclass, jlong h) {
     if (!out) return nullptr;
 
     jbyte* dst = env->GetByteArrayElements(out, nullptr);
-    bool ok = img->readPixels(info, dst, info.minRowBytes(), 0, 0);
+    SkPixmap pm(info, dst, info.minRowBytes());
+    bool ok = img->readPixels(nullptr, pm, 0, 0);
     env->ReleaseByteArrayElements(out, dst, 0);
     return ok ? out : nullptr;
 }
