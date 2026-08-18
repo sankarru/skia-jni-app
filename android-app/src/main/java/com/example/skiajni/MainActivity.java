@@ -25,6 +25,7 @@ import com.example.skiajni.SkiaUi.*;
 public class MainActivity extends Activity {
 
     private int W, H;
+    private int cutoutTop, cutoutLeft, cutoutRight; // safe-area insets (px)
     private ImageView imageView;
     private TextView status;
     private SkiaCanvas canvas;
@@ -38,7 +39,13 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Fullscreen immersive
+        // Fullscreen immersive + draw under the cutout (notch)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            WindowManager.LayoutParams lp = getWindow().getAttributes();
+            lp.layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+            getWindow().setAttributes(lp);
+        }
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         getWindow().getDecorView().setSystemUiVisibility(
@@ -54,6 +61,9 @@ public class MainActivity extends Activity {
         W = dm.widthPixels;
         H = dm.heightPixels;
 
+        // Compute safe-area insets (status bar + display cutout)
+        computeSafeInsets();
+
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
 
@@ -67,7 +77,7 @@ public class MainActivity extends Activity {
         status.setTextColor(Color.argb(180, 255, 255, 255));
         status.setTextSize(12);
         status.setShadowLayer(3, 1, 1, Color.BLACK);
-        status.setPadding(16, 24, 16, 8);
+        status.setPadding(16, cutoutTop + 8, 16, 8);
         root.addView(status, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT,
@@ -130,6 +140,41 @@ public class MainActivity extends Activity {
         if (imm != null) imm.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT, 0);
     }
 
+    /** Compute safe-area insets from system bars + display cutout. */
+    private void computeSafeInsets() {
+        final View decor = getWindow().getDecorView();
+        decor.post(() -> {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                android.graphics.Insets si = decor.getRootWindowInsets().getInsets(
+                        android.view.WindowInsets.Type.systemBars()
+                        | android.view.WindowInsets.Type.displayCutout());
+                cutoutTop = si.top;
+                cutoutLeft = si.left;
+                cutoutRight = si.right;
+            } else {
+                android.graphics.Rect rect = new android.graphics.Rect();
+                decor.getWindowVisibleDisplayFrame(rect);
+                cutoutTop = rect.top;
+            }
+            render();
+        });
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            getWindow().getDecorView().setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                    | View.SYSTEM_UI_FLAG_FULLSCREEN
+                    | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+            computeSafeInsets();
+        }
+    }
+
     /** Called by the soft keyboard (hooked via onKeyDown in Activity). */
     @Override
     public boolean onKeyDown(int keyCode, android.view.KeyEvent event) {
@@ -185,7 +230,9 @@ public class MainActivity extends Activity {
 
         float margin = W * 0.06f;
         float cardW = W - margin * 2;
-        float y = H * 0.05f;
+        // Start below the status bar / cutout
+        float topInset = Math.max(cutoutTop, 24);
+        float y = topInset + H * 0.03f;
 
         // Header card
         SkiaUi.Card header = new SkiaUi.Card(margin, y, cardW, H * 0.14f, cardBg);
