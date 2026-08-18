@@ -153,6 +153,30 @@ Java_com_example_skiajni_SkiaCanvas_nSaveToFile(JNIEnv* env, jclass, jlong h, js
     return ok ? JNI_TRUE : JNI_FALSE;
 }
 
+// Copies the raster surface pixels (RGBA) into a Java byte array.
+// Returns the byte[] or null if the surface isn't raster-backed.
+JNIEXPORT jbyteArray JNICALL
+Java_com_example_skiajni_SkiaCanvas_nGetPixels(JNIEnv* env, jclass, jlong h) {
+    auto nc = reinterpret_cast<NativeCanvas*>(h);
+    if (!nc || !nc->surface) return nullptr;
+
+    auto img = nc->surface->peekPixels()
+        ? nc->surface->makeImageSnapshot()
+        : nullptr;
+    if (!img) return nullptr;
+
+    SkImageInfo info = SkImageInfo::Make(nc->width, nc->height,
+                                         kRGBA_8888_SkColorType, kPremul_SkAlphaType);
+    jsize size = static_cast<jsize>(info.computeByteSize(info.minRowBytes()));
+    jbyteArray out = env->NewByteArray(size);
+    if (!out) return nullptr;
+
+    jbyte* dst = env->GetByteArrayElements(out, nullptr);
+    bool ok = img->readPixels(info, dst, info.minRowBytes(), 0, 0);
+    env->ReleaseByteArrayElements(out, dst, 0);
+    return ok ? out : nullptr;
+}
+
 // ====================================================================
 // Vulkan backend
 // ====================================================================
