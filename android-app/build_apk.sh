@@ -43,9 +43,12 @@ echo ">>> [4/6] Dexing with d8..."
 "$D8" --release --lib "$PLATFORM/android.jar" --output "$OUT/stage" \
     $(find "$OUT/classes" -name "*.class")
 
-echo ">>> [5/6] Adding classes.dex + native lib to APK..."
+echo ">>> [5/6] Adding classes.dex + native libs to APK..."
 mkdir -p "$OUT/stage/lib/arm64-v8a"
 cp "$LIBSO" "$OUT/stage/lib/arm64-v8a/"
+if [ -f "$ROOT/../libs/libc++_shared.so" ]; then
+    cp "$ROOT/../libs/libc++_shared.so" "$OUT/stage/lib/arm64-v8a/"
+fi
 (
     cd "$OUT/stage"
     zip -q -j "$OUT/app.unsigned.apk" classes.dex

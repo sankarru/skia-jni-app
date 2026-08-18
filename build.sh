@@ -106,7 +106,13 @@ $TOOLCHAIN_DIR/${TRIPLE}-clang++ -shared \
     -o "$JNI_SO" "$JNI_OBJ" \
     -L"$SKIA_OUT" -lskia \
     -llog -landroid -ldl -lm -lz \
-    -static-libstdc++ \
     -Wl,--gc-sections -Wl,--strip-all
+
+# Ship libc++_shared.so alongside the JNI lib (NDK C++ runtime).
+CXX_SHARED="$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/${TARGET}/${API}/libc++_shared.so"
+if [ -f "$CXX_SHARED" ]; then
+    cp "$CXX_SHARED" "$OUT_DIR/"
+    echo ">>> Copied $CXX_SHARED -> $OUT_DIR/libc++_shared.so"
+fi
 
 echo ">>> Done: $JNI_SO ($(du -h "$JNI_SO" | cut -f1))"
