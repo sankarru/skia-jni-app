@@ -13,11 +13,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install system deps
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y ninja-build python3 git libfreetype-dev libfontconfig-dev
-
       - name: Set up Android NDK
         env:
           ANDROID_NDK_URL: https://dl.google.com/android/repository/android-ndk-r29-linux.zip
