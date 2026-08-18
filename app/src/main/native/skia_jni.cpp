@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <cstring>
 #include <algorithm>
+#include <mutex>
 #include <vector>
 #include <map>
 #include <dlfcn.h>
@@ -12,8 +13,12 @@
 #include "include/core/SkPaint.h"
 #include "include/core/SkSurface.h"
 #include "include/core/SkFont.h"
+#include "include/core/SkFontMgr.h"
+#include "include/core/SkFontStyle.h"
 #include "include/core/SkTextBlob.h"
 #include "include/core/SkTypeface.h"
+#include "include/ports/SkFontMgr_android_ndk.h"
+#include "include/ports/SkFontScanner_FreeType.h"
 #include "include/core/SkPath.h"
 #include "include/core/SkPathBuilder.h"
 #include "include/core/SkImage.h"
@@ -63,6 +68,23 @@ struct VulkanCtx {
 
 static inline SkColor toARGB(jint c) {
     return SkColorSetARGB((c>>24)&0xFF,(c>>16)&0xFF,(c>>8)&0xFF,c&0xFF);
+}
+
+// Font manager for text rendering (NDK system fonts).
+static sk_sp<SkFontMgr> gFontMgr;
+static sk_sp<SkTypeface> gTypeface;
+static std::once_flag gFontInit;
+
+static void initFonts() {
+    gFontMgr = SkFontMgr_New_AndroidNDK(true, SkFontScanner_Make_FreeType());
+    if (gFontMgr) {
+        gTypeface = gFontMgr->matchFamilyStyle(nullptr, SkFontStyle());
+    }
+}
+
+static sk_sp<SkTypeface> defaultTypeface() {
+    std::call_once(gFontInit, initFonts);
+    return gTypeface;
 }
 
 static SkCanvas* getCanvas(jlong h) {
@@ -322,8 +344,7 @@ JNIEXPORT jfloat JNICALL
 Java_com_example_skiajni_SkiaCanvas_nMeasureText(JNIEnv* env, jclass,
         jstring text, jfloat sz) {
     const char* s = env->GetStringUTFChars(text, nullptr);
-    SkFont font;
-    font.setSize(sz);
+    SkFont font(defaultTypeface(), sz);
     jfloat w = font.measureText(s, strlen(s), SkTextEncoding::kUTF8);
     env->ReleaseStringUTFChars(text, s);
     return w;
@@ -424,8 +445,7 @@ Java_com_example_skiajni_SkiaCanvas_nDrawText(JNIEnv* env, jclass, jlong h,
     if (!c2) return;
     const char* s = env->GetStringUTFChars(text, nullptr);
     SkPaint p; p.setColor(toARGB(c)); p.setAntiAlias(true);
-    SkFont font;
-    font.setSize(sz);
+    SkFont font(defaultTypeface(), sz);
     c2->drawTextBlob(SkTextBlob::MakeFromString(s, font), x, y, p);
     env->ReleaseStringUTFChars(text, s);
 }

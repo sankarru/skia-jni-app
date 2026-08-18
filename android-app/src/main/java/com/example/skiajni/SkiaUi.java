@@ -86,8 +86,13 @@ public class SkiaUi {
             int base = pressed ? 0xFF1565C0 : color;
             c.fillRoundRect(x, y, w, h, 14, 14, base);
             c.drawRoundRect(x, y, w, h, 14, 14, 0xFF0D47A1, 2);
-            c.drawText(label, x + w / 2 - c.measureText(label, (int) (h * 0.4f)) / 2,
-                    y + h * 0.62f, 0xFFFFFFFF, (int) (h * 0.4f));
+            int fs = (int) (h * 0.42f);
+            float tw = c.measureText(label, fs);
+            // Center horizontally and vertically (baseline offset by ~1/3 of size)
+            c.drawText(label,
+                    x + (w - tw) / 2,
+                    y + h / 2 + fs * 0.35f,
+                    0xFFFFFFFF, fs);
         }
 
         @Override
