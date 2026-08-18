@@ -10,12 +10,14 @@
 #include "include/core/SkFont.h"
 #include "include/core/SkTextBlob.h"
 #include "include/core/SkTypeface.h"
-#include "include/codec/SkPngEncoder.h"
+#include "include/encode/SkPngEncoder.h"
 
 // ── Skia GPU / Vulkan ─────────────────────────────────────────────
 #include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrBackendSurface.h"
 #include "include/gpu/ganesh/vk/GrVkDirectContext.h"
 #include "include/gpu/ganesh/vk/GrVkBackendSurface.h"
+#include "include/gpu/ganesh/vk/GrVkTypes.h"
 #include "include/gpu/ganesh/SkSurfaceGanesh.h"
 #include "include/gpu/vk/VulkanBackendContext.h"
 #include "include/gpu/vk/VulkanMemoryAllocator.h"
@@ -92,7 +94,7 @@ JNIEXPORT void JNICALL
 Java_com_example_skiajni_SkiaCanvas_nDrawRect(JNIEnv*, jclass, jlong h,
         jfloat x, jfloat y, jfloat w, jfloat hh, jint c, jfloat s) {
     if (auto* c2 = getCanvas(h)) {
-        SkPaint p; p.setColor(toARGB(c)); p.setStyle(SkPaintStyle::kStroke);
+        SkPaint p; p.setColor(toARGB(c)); p.setStyle(SkPaint::kStroke_Style);
         p.setStrokeWidth(s); p.setAntiAlias(true);
         c2->drawRect(SkRect::MakeXYWH(x, y, w, hh), p);
     }
@@ -102,7 +104,7 @@ JNIEXPORT void JNICALL
 Java_com_example_skiajni_SkiaCanvas_nDrawCircle(JNIEnv*, jclass, jlong h,
         jfloat cx, jfloat cy, jfloat r, jint c, jfloat s) {
     if (auto* c2 = getCanvas(h)) {
-        SkPaint p; p.setColor(toARGB(c)); p.setStyle(SkPaintStyle::kStroke);
+        SkPaint p; p.setColor(toARGB(c)); p.setStyle(SkPaint::kStroke_Style);
         p.setStrokeWidth(s); p.setAntiAlias(true);
         c2->drawCircle(cx, cy, r, p);
     }
@@ -113,7 +115,7 @@ Java_com_example_skiajni_SkiaCanvas_nDrawLine(JNIEnv*, jclass, jlong h,
         jfloat x0, jfloat y0, jfloat x1, jfloat y1, jint c, jfloat s) {
     if (auto* c2 = getCanvas(h)) {
         SkPaint p; p.setColor(toARGB(c)); p.setStrokeWidth(s);
-        p.setStrokeCap(SkPaintCap::kRound); p.setAntiAlias(true);
+        p.setStrokeCap(SkPaint::kRound_Cap); p.setAntiAlias(true);
         c2->drawLine(x0, y0, x1, y1, p);
     }
 }
@@ -125,7 +127,8 @@ Java_com_example_skiajni_SkiaCanvas_nDrawText(JNIEnv* env, jclass, jlong h,
     if (!c2) return;
     const char* s = env->GetStringUTFChars(text, nullptr);
     SkPaint p; p.setColor(toARGB(c)); p.setAntiAlias(true);
-    SkFont font(SkTypeface::MakeDefault(), sz);
+    SkFont font;
+    font.setSize(sz);
     c2->drawTextBlob(SkTextBlob::MakeFromString(s, font), x, y, p);
     env->ReleaseStringUTFChars(text, s);
 }
