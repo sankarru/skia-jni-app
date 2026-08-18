@@ -80,6 +80,18 @@ public class SkiaCanvas implements AutoCloseable {
 
     public float measureText(String t, float size) { return nMeasureText(t, size); }
 
+    // ── Images ──────────────────────────────────────────────────────
+    public long createImage(byte[] data) { return nImageCreateFromBytes(data); }
+    public void destroyImage(long img)   { nImageDestroy(img); }
+    public int imageWidth(long img)      { return nImageGetWidth(img); }
+    public int imageHeight(long img)     { return nImageGetHeight(img); }
+    public void drawImage(long img, float x, float y, float w, float h, float alpha) {
+        check(); nDrawImage(handle, img, x, y, w, h, alpha);
+    }
+    public void drawImageRounded(long img, float x, float y, float w, float h, float r) {
+        check(); nDrawImageRounded(handle, img, x, y, w, h, r);
+    }
+
     /** Returns raw RGBA pixels (w*h*4 bytes), or null on failure. */
     public byte[] getPixels()                                             { check(); return nGetPixels(handle); }
 
@@ -173,5 +185,13 @@ public class SkiaCanvas implements AutoCloseable {
 
     // Text
     private static native float nMeasureText(String t,float size);
+
+    // Images
+    private static native long nImageCreateFromBytes(byte[] data);
+    private static native void nImageDestroy(long img);
+    private static native int  nImageGetWidth(long img);
+    private static native int  nImageGetHeight(long img);
+    private static native void nDrawImage(long h,long img,float x,float y,float w,float hh,float alpha);
+    private static native void nDrawImageRounded(long h,long img,float x,float y,float w,float hh,float r);
     private static native byte[] nGetPixels(long h);
 }

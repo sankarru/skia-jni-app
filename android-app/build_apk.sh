@@ -43,16 +43,22 @@ echo ">>> [4/6] Dexing with d8..."
 "$D8" --release --lib "$PLATFORM/android.jar" --output "$OUT/stage" \
     $(find "$OUT/classes" -name "*.class")
 
-echo ">>> [5/6] Adding classes.dex + native libs to APK..."
+echo ">>> [5/6] Adding classes.dex + native libs + assets to APK..."
 mkdir -p "$OUT/stage/lib/arm64-v8a"
 cp "$LIBSO" "$OUT/stage/lib/arm64-v8a/"
 if [ -f "$ROOT/../libs/libc++_shared.so" ]; then
     cp "$ROOT/../libs/libc++_shared.so" "$OUT/stage/lib/arm64-v8a/"
 fi
+# Copy assets into the APK root (Android expects assets/ prefix)
+if [ -d "$ROOT/src/main/assets" ]; then
+    mkdir -p "$OUT/stage/assets"
+    cp -r "$ROOT/src/main/assets/." "$OUT/stage/assets/"
+fi
 (
     cd "$OUT/stage"
     zip -q -j "$OUT/app.unsigned.apk" classes.dex
     zip -q -r "$OUT/app.unsigned.apk" lib
+    zip -q -r "$OUT/app.unsigned.apk" assets
 )
 
 echo ">>> [6/6] Zipalign + sign..."

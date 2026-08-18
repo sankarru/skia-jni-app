@@ -16,6 +16,8 @@
 #include "include/core/SkTypeface.h"
 #include "include/core/SkPath.h"
 #include "include/core/SkPathBuilder.h"
+#include "include/core/SkImage.h"
+#include "include/core/SkData.h"
 #include "include/effects/SkGradient.h"
 #include "include/core/SkShader.h"
 #include "include/core/SkTileMode.h"
@@ -325,6 +327,94 @@ Java_com_example_skiajni_SkiaCanvas_nMeasureText(JNIEnv* env, jclass,
     jfloat w = font.measureText(s, strlen(s), SkTextEncoding::kUTF8);
     env->ReleaseStringUTFChars(text, s);
     return w;
+}
+
+// ── Images ─────────────────────────────────────────────────────────
+
+struct NativeImage {
+    sk_sp<SkImage> image;
+    int width, height;
+};
+
+JNIEXPORT jlong JNICALL
+Java_com_example_skiajni_SkiaCanvas_nImageCreateFromBytes(JNIEnv* env, jclass,
+        jbyteArray data) {
+    jsize len = env->GetArrayLength(data);
+    if (len <= 0) return 0;
+    jbyte* bytes = env->GetByteArrayElements(data, nullptr);
+    auto skData = SkData::MakeWithCopy(bytes, static_cast<size_t>(len));
+    env->ReleaseByteArrayElements(data, bytes, JNI_ABORT);
+
+    auto img = SkImages::DeferredFromEncodedData(std::move(skData));
+    if (!img) return 0;
+
+    auto ni = new NativeImage();
+    ni->image = std::move(img);
+    ni->width = ni->image->width();
+    ni->height = ni->image->height();
+    return reinterpret_cast<jlong>(ni);
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_skiajni_SkiaCanvas_nImageDestroy(JNIEnv*, jclass, jlong img) {
+    delete reinterpret_cast<NativeImage*>(img);
+}
+
+JNIEXPORT jint JNICALL
+Java_com_example_skiajni_SkiaCanvas_nImageGetWidth(JNIEnv*, jclass, jlong img) {
+    auto ni = reinterpret_cast<NativeImage*>(img);
+    return ni ? ni->width : 0;
+}
+
+JNIEXPORT jint JNICALL
+Java_com_example_skiajni_SkiaCanvas_nImageGetHeight(JNIEnv*, jclass, jlong img) {
+    auto ni = reinterpret_cast<NativeImage*>(img);
+    return ni ? ni->height : 0;
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_skiajni_SkiaCanvas_nDrawImage(JNIEnv*, jclass, jlong h, jlong img,
+        jfloat x, jfloat y, jfloat w, jfloat hh, jfloat alpha) {
+    auto* c2 = getCanvas(h);
+    auto* ni = reinterpret_cast<NativeImage*>(img);
+    if (!c2 || !ni || !ni->image) return;
+
+    c2->save();
+    c2->clipRect(SkRect::MakeXYWH(x, y, w, hh), true);
+    SkPaint p;
+    p.setAlpha(static_cast<U8CPU>(alpha * 255.0f));
+    p.setAntiAlias(true);
+    SkRect dst = SkRect::MakeXYWH(x, y, w, hh);
+    SkRect src = SkRect::MakeXYWH(0, 0,
+                                  ni->image->width(), ni->image->height());
+    c2->drawImageRect(ni->image, src, dst,
+                      SkSamplingOptions(SkFilterMode::kLinear),
+                      &p, SkCanvas::kFast_SrcRectConstraint);
+    c2->restore();
+}
+
+// ── Round rect image clip (rounded corners) ────────────────────────
+
+JNIEXPORT void JNICALL
+Java_com_example_skiajni_SkiaCanvas_nDrawImageRounded(JNIEnv*, jclass, jlong h,
+        jlong img, jfloat x, jfloat y, jfloat w, jfloat hh, jfloat r) {
+    auto* c2 = getCanvas(h);
+    auto* ni = reinterpret_cast<NativeImage*>(img);
+    if (!c2 || !ni || !ni->image) return;
+
+    c2->save();
+    SkPath clip;
+    clip = SkPath::RRect(SkRect::MakeXYWH(x, y, w, hh), r, r);
+    c2->clipPath(clip, true);
+    SkPaint p;
+    p.setAntiAlias(true);
+    SkRect dst = SkRect::MakeXYWH(x, y, w, hh);
+    SkRect src = SkRect::MakeXYWH(0, 0,
+                                  ni->image->width(), ni->image->height());
+    c2->drawImageRect(ni->image, src, dst,
+                      SkSamplingOptions(SkFilterMode::kLinear),
+                      &p, SkCanvas::kFast_SrcRectConstraint);
+    c2->restore();
 }
 
 JNIEXPORT void JNICALL
