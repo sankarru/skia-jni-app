@@ -110,10 +110,16 @@ $TOOLCHAIN_DIR/${TRIPLE}-clang++ -shared \
     -Wl,--gc-sections -Wl,--strip-all
 
 # Ship libc++_shared.so alongside the JNI lib (NDK C++ runtime).
-CXX_SHARED="$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/${TARGET}/${API}/libc++_shared.so"
-if [ -f "$CXX_SHARED" ]; then
+SYSROOT_LIB="$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/${TARGET}"
+CXX_SHARED=""
+for p in "$SYSROOT_LIB/libc++_shared.so" "$SYSROOT_LIB/${API}/libc++_shared.so"; do
+    if [ -f "$p" ]; then CXX_SHARED="$p"; break; fi
+done
+if [ -n "$CXX_SHARED" ]; then
     cp "$CXX_SHARED" "$OUT_DIR/"
     echo ">>> Copied $CXX_SHARED -> $OUT_DIR/libc++_shared.so"
+else
+    echo ">>> WARNING: libc++_shared.so not found in NDK"
 fi
 
 echo ">>> Done: $JNI_SO ($(du -h "$JNI_SO" | cut -f1))"
