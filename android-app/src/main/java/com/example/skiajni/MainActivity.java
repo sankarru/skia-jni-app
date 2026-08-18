@@ -47,7 +47,7 @@ public class MainActivity extends Activity {
         // Scene buttons
         LinearLayout buttons = new LinearLayout(this);
         buttons.setPadding(16, 16, 16, 24);
-        String[] labels = {"Shapes", "Gradient", "Text"};
+        String[] labels = {"Shapes", "Gradient", "Text", "Paths"};
         for (int i = 0; i < labels.length; i++) {
             final int idx = i;
             TextView btn = new TextView(this);
@@ -81,6 +81,7 @@ public class MainActivity extends Activity {
                 case 0: drawShapes(c); break;
                 case 1: drawGradient(c); break;
                 case 2: drawText(c); break;
+                case 3: drawPaths(c); break;
             }
 
             byte[] px = c.getPixels();
@@ -90,7 +91,7 @@ public class MainActivity extends Activity {
                 Bitmap bmp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888);
                 bmp.copyPixelsFromBuffer(ByteBuffer.wrap(px));
                 imageView.setImageBitmap(bmp);
-                status.setText("Scene " + (idx + 1) + "/3  ·  " + W + "x" + H +
+                status.setText("Scene " + (idx + 1) + "/4  ·  " + W + "x" + H +
                         "  ·  " + dt + " ms  ·  Skia JNI");
             } else {
                 status.setText("getPixels() returned null");
@@ -169,5 +170,66 @@ public class MainActivity extends Activity {
         c.drawCircle(150, 1500, 100, 0xFFFFFFFF, 4);
         c.drawCircle(930, 1500, 100, 0xFFFFFFFF, 4);
         c.drawLine(150, 1500, 930, 1500, 0xFFFFFFFF, 4);
+    }
+
+    private void drawPaths(SkiaCanvas c) {
+        c.clear(0xFF0D0D0D);
+
+        // Heart shape using cubic curves (filled + stroked)
+        long heart = c.createPath();
+        c.pathMoveTo(heart, 540, 600);
+        c.pathCubicTo(heart, 540, 420, 300, 380, 300, 580);
+        c.pathCubicTo(heart, 300, 780, 540, 880, 540, 980);
+        c.pathCubicTo(heart, 540, 880, 780, 780, 780, 580);
+        c.pathCubicTo(heart, 780, 380, 540, 420, 540, 600);
+        c.pathClose(heart);
+        c.drawPath(heart, 0xFFE91E63, 6, true);
+        c.destroyPath(heart);
+
+        // Star with transforms (rotate + scale)
+        long star = c.createPath();
+        for (int i = 0; i < 10; i++) {
+            double ang = Math.PI / 5 * i;
+            float r = (i % 2 == 0) ? 220 : 100;
+            float x = 540 + (float) (r * Math.cos(ang));
+            float y = 1500 + (float) (r * Math.sin(ang));
+            if (i == 0) c.pathMoveTo(star, x, y);
+            else c.pathLineTo(star, x, y);
+        }
+        c.pathClose(star);
+        c.save();
+        c.translate(540, 1500);
+        c.rotate(15);
+        c.scale(0.85f, 0.85f);
+        c.drawPath(star, 0xFFFFC107, 4, true);
+        c.restore();
+        c.destroyPath(star);
+
+        // Spiral via quadratic curves with rotation
+        long spiral = c.createPath();
+        c.pathMoveTo(spiral, 920, 400);
+        for (int i = 0; i < 6; i++) {
+            c.pathQuadTo(spiral, 1080, 220 + i * 60, 980, 500 + i * 40);
+        }
+        c.save();
+        c.translate(200, 800);
+        c.rotate(90);
+        c.drawPath(spiral, 0xFF00E5FF, 5, false);
+        c.restore();
+        c.destroyPath(spiral);
+
+        // Clip demo: circle clip with rect inside
+        c.save();
+        long clip = c.createPath();
+        c.pathMoveTo(clip, 540, 1700);
+        c.pathQuadTo(clip, 540, 1500, 700, 1650);
+        c.pathQuadTo(clip, 720, 1780, 540, 1700);
+        c.pathClose(clip);
+        c.clipPath(clip);
+        c.fillRect(400, 1550, 300, 260, 0xFF2196F3);
+        c.restore();
+        c.destroyPath(clip);
+
+        c.drawText("Paths & Transforms", 300, 150, 0xFFFFFFFF, 52);
     }
 }

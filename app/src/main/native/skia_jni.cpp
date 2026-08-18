@@ -1,5 +1,6 @@
 #include <jni.h>
 #include <cstdio>
+#include <cstring>
 #include <algorithm>
 #include <vector>
 #include <map>
@@ -13,6 +14,8 @@
 #include "include/core/SkFont.h"
 #include "include/core/SkTextBlob.h"
 #include "include/core/SkTypeface.h"
+#include "include/core/SkPath.h"
+#include "include/core/SkPathBuilder.h"
 #include "include/effects/SkGradient.h"
 #include "include/core/SkShader.h"
 #include "include/core/SkTileMode.h"
@@ -202,6 +205,126 @@ Java_com_example_skiajni_SkiaCanvas_nFillOval(JNIEnv*, jclass, jlong h,
         p.setAntiAlias(true);
         c2->drawOval(SkRect::MakeXYWH(x, y, w, hh), p);
     }
+}
+
+// ── Compose-style primitives: path / transform / clip ─────────────
+
+struct NativePath {
+    SkPathBuilder builder;
+    SkPath detach() { return builder.detach(); }
+};
+
+JNIEXPORT jlong JNICALL
+Java_com_example_skiajni_SkiaCanvas_nPathCreate(JNIEnv*, jclass) {
+    return reinterpret_cast<jlong>(new NativePath());
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_skiajni_SkiaCanvas_nPathDestroy(JNIEnv*, jclass, jlong p) {
+    delete reinterpret_cast<NativePath*>(p);
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_skiajni_SkiaCanvas_nPathReset(JNIEnv*, jclass, jlong p) {
+    reinterpret_cast<NativePath*>(p)->builder.reset();
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_skiajni_SkiaCanvas_nPathMoveTo(JNIEnv*, jclass, jlong p,
+        jfloat x, jfloat y) {
+    reinterpret_cast<NativePath*>(p)->builder.moveTo(x, y);
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_skiajni_SkiaCanvas_nPathLineTo(JNIEnv*, jclass, jlong p,
+        jfloat x, jfloat y) {
+    reinterpret_cast<NativePath*>(p)->builder.lineTo(x, y);
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_skiajni_SkiaCanvas_nPathQuadTo(JNIEnv*, jclass, jlong p,
+        jfloat x1, jfloat y1, jfloat x2, jfloat y2) {
+    reinterpret_cast<NativePath*>(p)->builder.quadTo(x1, y1, x2, y2);
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_skiajni_SkiaCanvas_nPathCubicTo(JNIEnv*, jclass, jlong p,
+        jfloat x1, jfloat y1, jfloat x2, jfloat y2, jfloat x3, jfloat y3) {
+    reinterpret_cast<NativePath*>(p)->builder.cubicTo(x1, y1, x2, y2, x3, y3);
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_skiajni_SkiaCanvas_nPathClose(JNIEnv*, jclass, jlong p) {
+    reinterpret_cast<NativePath*>(p)->builder.close();
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_skiajni_SkiaCanvas_nDrawPath(JNIEnv*, jclass, jlong h, jlong p,
+        jint c, jfloat s, jboolean fill) {
+    auto* c2 = getCanvas(h);
+    auto* np = reinterpret_cast<NativePath*>(p);
+    if (!c2 || !np) return;
+    SkPaint paint;
+    paint.setColor(toARGB(c));
+    paint.setAntiAlias(true);
+    paint.setStyle(fill ? SkPaint::kFill_Style : SkPaint::kStroke_Style);
+    if (!fill) paint.setStrokeWidth(s);
+    c2->drawPath(np->detach(), paint);
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_skiajni_SkiaCanvas_nSave(JNIEnv*, jclass, jlong h) {
+    if (auto* c2 = getCanvas(h)) c2->save();
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_skiajni_SkiaCanvas_nRestore(JNIEnv*, jclass, jlong h) {
+    if (auto* c2 = getCanvas(h)) c2->restore();
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_skiajni_SkiaCanvas_nTranslate(JNIEnv*, jclass, jlong h,
+        jfloat dx, jfloat dy) {
+    if (auto* c2 = getCanvas(h)) c2->translate(dx, dy);
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_skiajni_SkiaCanvas_nScale(JNIEnv*, jclass, jlong h,
+        jfloat sx, jfloat sy) {
+    if (auto* c2 = getCanvas(h)) c2->scale(sx, sy);
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_skiajni_SkiaCanvas_nRotate(JNIEnv*, jclass, jlong h,
+        jfloat deg) {
+    if (auto* c2 = getCanvas(h)) c2->rotate(deg);
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_skiajni_SkiaCanvas_nClipRect(JNIEnv*, jclass, jlong h,
+        jfloat x, jfloat y, jfloat w, jfloat hh) {
+    if (auto* c2 = getCanvas(h))
+        c2->clipRect(SkRect::MakeXYWH(x, y, w, hh), true);
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_skiajni_SkiaCanvas_nClipPath(JNIEnv*, jclass, jlong h, jlong p) {
+    auto* c2 = getCanvas(h);
+    auto* np = reinterpret_cast<NativePath*>(p);
+    if (c2 && np) c2->clipPath(np->detach(), true);
+}
+
+// ── Text measurement ───────────────────────────────────────────────
+
+JNIEXPORT jfloat JNICALL
+Java_com_example_skiajni_SkiaCanvas_nMeasureText(JNIEnv* env, jclass,
+        jstring text, jfloat sz) {
+    const char* s = env->GetStringUTFChars(text, nullptr);
+    SkFont font;
+    font.setSize(sz);
+    jfloat w = font.measureText(s, strlen(s), SkTextEncoding::kUTF8);
+    env->ReleaseStringUTFChars(text, s);
+    return w;
 }
 
 JNIEXPORT void JNICALL

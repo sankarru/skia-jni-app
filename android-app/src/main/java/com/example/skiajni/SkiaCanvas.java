@@ -58,6 +58,28 @@ public class SkiaCanvas implements AutoCloseable {
     public void drawGradient(float x0,float y0,float x1,float y1,int c0,int c1,int mode) { check(); nDrawGradient(handle,x0,y0,x1,y1,c0,c1,mode); }
     public boolean saveToFile(String path)                                { check(); return nSaveToFile(handle,path); }
 
+    // ── Transform (Compose-style) ───────────────────────────────────
+    public void save()                         { check(); nSave(handle); }
+    public void restore()                      { check(); nRestore(handle); }
+    public void translate(float dx, float dy)  { check(); nTranslate(handle, dx, dy); }
+    public void scale(float sx, float sy)      { check(); nScale(handle, sx, sy); }
+    public void rotate(float deg)              { check(); nRotate(handle, deg); }
+    public void clipRect(float x, float y, float w, float h) { check(); nClipRect(handle, x, y, w, h); }
+    public void clipPath(long pathHandle)      { check(); nClipPath(handle, pathHandle); }
+
+    // ── Path (Compose-style) ────────────────────────────────────────
+    public long createPath() { return nPathCreate(); }
+    public void pathMoveTo(long p, float x, float y)   { nPathMoveTo(p, x, y); }
+    public void pathLineTo(long p, float x, float y)   { nPathLineTo(p, x, y); }
+    public void pathQuadTo(long p, float x1, float y1, float x2, float y2) { nPathQuadTo(p, x1, y1, x2, y2); }
+    public void pathCubicTo(long p, float x1, float y1, float x2, float y2, float x3, float y3) { nPathCubicTo(p, x1, y1, x2, y2, x3, y3); }
+    public void pathClose(long p)              { nPathClose(p); }
+    public void pathReset(long p)              { nPathReset(p); }
+    public void destroyPath(long p)            { nPathDestroy(p); }
+    public void drawPath(long p, int c, float s, boolean fill) { check(); nDrawPath(handle, p, c, s, fill); }
+
+    public float measureText(String t, float size) { return nMeasureText(t, size); }
+
     /** Returns raw RGBA pixels (w*h*4 bytes), or null on failure. */
     public byte[] getPixels()                                             { check(); return nGetPixels(handle); }
 
@@ -128,5 +150,28 @@ public class SkiaCanvas implements AutoCloseable {
     private static native void   nFillOval(long h,float x,float y,float w,float hh,int c);
     private static native void   nDrawGradient(long h,float x0,float y0,float x1,float y1,int c0,int c1,int mode);
     private static native boolean nSaveToFile(long h,String path);
+
+    // Transform
+    private static native void nSave(long h);
+    private static native void nRestore(long h);
+    private static native void nTranslate(long h,float dx,float dy);
+    private static native void nScale(long h,float sx,float sy);
+    private static native void nRotate(long h,float deg);
+    private static native void nClipRect(long h,float x,float y,float w,float hh);
+    private static native void nClipPath(long h,long p);
+
+    // Path
+    private static native long   nPathCreate();
+    private static native void   nPathDestroy(long p);
+    private static native void   nPathReset(long p);
+    private static native void   nPathMoveTo(long p,float x,float y);
+    private static native void   nPathLineTo(long p,float x,float y);
+    private static native void   nPathQuadTo(long p,float x1,float y1,float x2,float y2);
+    private static native void   nPathCubicTo(long p,float x1,float y1,float x2,float y2,float x3,float y3);
+    private static native void   nPathClose(long p);
+    private static native void   nDrawPath(long h,long p,int c,float s,boolean fill);
+
+    // Text
+    private static native float nMeasureText(String t,float size);
     private static native byte[] nGetPixels(long h);
 }
