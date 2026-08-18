@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ── Config ──────────────────────────────────────────────────────────
-NDK="${ANDROID_NDK:-/opt/android-ndk-r29}"
+NDK="${NDK:-${ANDROID_NDK:-/opt/android-ndk-r29}}"
 API=21
 ARCH=aarch64
 TARGET="${ARCH}-linux-android"
