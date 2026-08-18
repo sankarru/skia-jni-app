@@ -1,5 +1,6 @@
 #include <jni.h>
 #include <cstdio>
+#include <algorithm>
 #include <vector>
 #include <map>
 #include <dlfcn.h>
@@ -12,6 +13,9 @@
 #include "include/core/SkFont.h"
 #include "include/core/SkTextBlob.h"
 #include "include/core/SkTypeface.h"
+#include "include/effects/SkGradient.h"
+#include "include/core/SkShader.h"
+#include "include/core/SkTileMode.h"
 #include "include/encode/SkPngEncoder.h"
 
 // ── Skia GPU / Vulkan ─────────────────────────────────────────────
@@ -120,6 +124,83 @@ Java_com_example_skiajni_SkiaCanvas_nDrawLine(JNIEnv*, jclass, jlong h,
         SkPaint p; p.setColor(toARGB(c)); p.setStrokeWidth(s);
         p.setStrokeCap(SkPaint::kRound_Cap); p.setAntiAlias(true);
         c2->drawLine(x0, y0, x1, y1, p);
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_skiajni_SkiaCanvas_nFillRect(JNIEnv*, jclass, jlong h,
+        jfloat x, jfloat y, jfloat w, jfloat hh, jint c) {
+    if (auto* c2 = getCanvas(h)) {
+        SkPaint p; p.setColor(toARGB(c)); p.setStyle(SkPaint::kFill_Style);
+        p.setAntiAlias(true);
+        c2->drawRect(SkRect::MakeXYWH(x, y, w, hh), p);
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_skiajni_SkiaCanvas_nFillCircle(JNIEnv*, jclass, jlong h,
+        jfloat cx, jfloat cy, jfloat r, jint c) {
+    if (auto* c2 = getCanvas(h)) {
+        SkPaint p; p.setColor(toARGB(c)); p.setStyle(SkPaint::kFill_Style);
+        p.setAntiAlias(true);
+        c2->drawCircle(cx, cy, r, p);
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_skiajni_SkiaCanvas_nDrawRoundRect(JNIEnv*, jclass, jlong h,
+        jfloat x, jfloat y, jfloat w, jfloat hh, jfloat rx, jfloat ry,
+        jint c, jfloat s) {
+    if (auto* c2 = getCanvas(h)) {
+        SkPaint p; p.setColor(toARGB(c)); p.setStyle(SkPaint::kStroke_Style);
+        p.setStrokeWidth(s); p.setAntiAlias(true);
+        c2->drawRoundRect(SkRect::MakeXYWH(x, y, w, hh), rx, ry, p);
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_skiajni_SkiaCanvas_nFillRoundRect(JNIEnv*, jclass, jlong h,
+        jfloat x, jfloat y, jfloat w, jfloat hh, jfloat rx, jfloat ry, jint c) {
+    if (auto* c2 = getCanvas(h)) {
+        SkPaint p; p.setColor(toARGB(c)); p.setStyle(SkPaint::kFill_Style);
+        p.setAntiAlias(true);
+        c2->drawRoundRect(SkRect::MakeXYWH(x, y, w, hh), rx, ry, p);
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_skiajni_SkiaCanvas_nDrawGradient(JNIEnv*, jclass, jlong h,
+        jfloat x0, jfloat y0, jfloat x1, jfloat y1,
+        jint c0, jint c1, jint mode) {
+    if (auto* c2 = getCanvas(h)) {
+        SkPoint pts[2] = {{x0, y0}, {x1, y1}};
+        SkColor4f colors[2] = {
+            SkColor4f::FromColor(toARGB(c0)),
+            SkColor4f::FromColor(toARGB(c1)),
+        };
+        auto grad = SkGradient::Colors(SkSpan<const SkColor4f>(colors, 2),
+                                       SkTileMode::kClamp);
+        auto shader = SkShaders::LinearGradient(pts, SkGradient(grad, SkGradient::Interpolation()));
+
+        float left   = std::min(x0, x1);
+        float top    = std::min(y0, y1);
+        float right  = std::max(x0, x1);
+        float bottom = std::max(y0, y1);
+
+        SkPaint p;
+        p.setShader(shader);
+        p.setAntiAlias(true);
+        c2->drawRect(SkRect::MakeLTRB(left, top, right, bottom), p);
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_skiajni_SkiaCanvas_nFillOval(JNIEnv*, jclass, jlong h,
+        jfloat x, jfloat y, jfloat w, jfloat hh, jint c) {
+    if (auto* c2 = getCanvas(h)) {
+        SkPaint p; p.setColor(toARGB(c)); p.setStyle(SkPaint::kFill_Style);
+        p.setAntiAlias(true);
+        c2->drawOval(SkRect::MakeXYWH(x, y, w, hh), p);
     }
 }
 

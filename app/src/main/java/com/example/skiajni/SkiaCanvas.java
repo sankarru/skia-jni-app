@@ -50,6 +50,12 @@ public class SkiaCanvas implements AutoCloseable {
     public void drawCircle(float cx,float cy,float r,int c,float s)      { check(); nDrawCircle(handle,cx,cy,r,c,s); }
     public void drawLine(float x0,float y0,float x1,float y1,int c,float s){ check(); nDrawLine(handle,x0,y0,x1,y1,c,s); }
     public void drawText(String t,float x,float y,int c,float s)         { check(); nDrawText(handle,t,x,y,c,s); }
+    public void fillRect(float x,float y,float w,float h,int c)          { check(); nFillRect(handle,x,y,w,h,c); }
+    public void fillCircle(float cx,float cy,float r,int c)              { check(); nFillCircle(handle,cx,cy,r,c); }
+    public void drawRoundRect(float x,float y,float w,float h,float rx,float ry,int c,float s) { check(); nDrawRoundRect(handle,x,y,w,h,rx,ry,c,s); }
+    public void fillRoundRect(float x,float y,float w,float h,float rx,float ry,int c) { check(); nFillRoundRect(handle,x,y,w,h,rx,ry,c); }
+    public void fillOval(float x,float y,float w,float h,int c)          { check(); nFillOval(handle,x,y,w,h,c); }
+    public void drawGradient(float x0,float y0,float x1,float y1,int c0,int c1,int mode) { check(); nDrawGradient(handle,x0,y0,x1,y1,c0,c1,mode); }
     public boolean saveToFile(String path)                                { check(); return nSaveToFile(handle,path); }
 
     /** Returns raw RGBA pixels (w*h*4 bytes), or null on failure. */
@@ -115,6 +121,12 @@ public class SkiaCanvas implements AutoCloseable {
     private static native void   nDrawCircle(long h,float cx,float cy,float r,int c,float s);
     private static native void   nDrawLine(long h,float x0,float y0,float x1,float y1,int c,float s);
     private static native void   nDrawText(long h,String t,float x,float y,int c,float s);
+    private static native void   nFillRect(long h,float x,float y,float w,float hh,int c);
+    private static native void   nFillCircle(long h,float cx,float cy,float r,int c);
+    private static native void   nDrawRoundRect(long h,float x,float y,float w,float hh,float rx,float ry,int c,float s);
+    private static native void   nFillRoundRect(long h,float x,float y,float w,float hh,float rx,float ry,int c);
+    private static native void   nFillOval(long h,float x,float y,float w,float hh,int c);
+    private static native void   nDrawGradient(long h,float x0,float y0,float x1,float y1,int c0,int c1,int mode);
     private static native boolean nSaveToFile(long h,String path);
     private static native byte[] nGetPixels(long h);
 }
