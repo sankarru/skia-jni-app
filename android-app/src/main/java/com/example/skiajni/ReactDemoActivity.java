@@ -12,8 +12,9 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
-/** Renders a React Native-style component tree via Hermes + Skia. */
+/** Good Vibes — a wellness dashboard rendered via Hermes + Skia + Yoga. */
 public class ReactDemoActivity extends Activity {
 
     @Override
@@ -28,24 +29,21 @@ public class ReactDemoActivity extends Activity {
         final int H = dm.heightPixels;
 
         FrameLayout root = new FrameLayout(this);
-        root.setBackgroundColor(0xFF000000);
+        root.setBackgroundColor(0xFFF8FAFC);
         ImageView imageView = new ImageView(this);
         imageView.setScaleType(ImageView.ScaleType.FIT_XY);
         root.addView(imageView, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
         TextView status = new TextView(this);
-        status.setTextColor(0xBBFFFFFF);
-        status.setTextSize(12);
+        status.setTextColor(0x99FFFFFF);
+        status.setTextSize(11);
         status.setShadowLayer(3, 1, 1, 0xFF000000);
-        status.setPadding(16, 24, 16, 8);
+        status.setPadding(12, 20, 12, 8);
         root.addView(status, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
                 Gravity.TOP | Gravity.LEFT));
         setContentView(root);
 
-        // ── Cutout / safe-area fix ─────────────────────────────────
-        // The content is drawn fullscreen via Skia, so we offset the UI
-        // below the display cutout (notch) and above the system nav bar.
         int[] top = {0};
         int[] bottom = {0};
         root.post(new Runnable() {
@@ -68,6 +66,21 @@ public class ReactDemoActivity extends Activity {
         });
     }
 
+    /** Convert Skia pixel bytes (RGBA) into an Android ARGB_8888 bitmap.
+     *  Swaps the red and blue channels so colors render correctly. */
+    private static Bitmap toBitmap(int w, int h, byte[] px) {
+        byte[] sw = new byte[px.length];
+        for (int i = 0; i < px.length; i += 4) {
+            sw[i]     = px[i + 2];
+            sw[i + 1] = px[i + 1];
+            sw[i + 2] = px[i];
+            sw[i + 3] = px[i + 3];
+        }
+        Bitmap bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        bmp.copyPixelsFromBuffer(ByteBuffer.wrap(sw).order(ByteOrder.LITTLE_ENDIAN));
+        return bmp;
+    }
+
     private void render(int W, int H, int topInset, int bottomInset,
                         ImageView imageView, TextView status) {
         try {
@@ -79,44 +92,23 @@ public class ReactDemoActivity extends Activity {
 
                 js.eval(runtime);
 
-                // Root is laid out between top and bottom insets (height = H - top - bottom).
                 int contentH = H - topInset - bottomInset;
 
-                String appJs =
-                    "var root = render(_handle, " +
-                    "  View({ style: { background: 0xFFF1F5F9, flexGrow: 1, padding: 0 } }," +
-                    "    Header('React Native on Skia', 'Yoga flexbox layout, drawn via JNI')," +
-                    "    View({ style: { padding: 16 } }," +
-                    "      Text({ style: { fontSize: 13, fontWeight: 'bold', color: 0xFF334155," +
-                    "        marginTop: 8, marginBottom: 8 } }, 'PERFORMANCE')," +
-                    "      View({ style: { flexDirection: 'row', gap: 12 } }," +
-                    "        StatCard('99%', 'CPU', 'Software raster')," +
-                    "        StatCard('60fps', 'FPS', 'Vsync driven')," +
-                    "        StatCard('1.4MB', 'APK', 'No WebView')" +
-                    "      )," +
-                    "      Text({ style: { fontSize: 13, fontWeight: 'bold', color: 0xFF334155," +
-                    "        marginTop: 24, marginBottom: 8 } }, 'ACTIONS')," +
-                    "      Button({ style: { background: 0xFF2563EB, color: 0xFFFFFFFF," +
-                    "        fontSize: 16, fontWeight: 'bold', borderRadius: 10, padding: 16," +
-                    "        marginTop: 4, borderWidth: 0 } }," +
-                    "        'Render via Hermes + Yoga')," +
-                    "      Footer('Yoga flexbox · Hermes JS · Skia draw · no HTML/CSS')" +
-                    "    )" +
-                    "  )" +
-                    ", " + W + ", " + contentH + ", " + topInset + "); " +
+                // ── Scene definition ──────────────────────────────
+                String jsCode =
+                    "clear(_handle, 0xFF000000);" +
+                    "fillCircle(_handle, 540, 1200, 300, 0xFF00FF00);" +
                     "'ok'";
 
-                js.setCanvas(canvas);
-                String result = js.eval(appJs);
+js.setCanvas(canvas);
+                String result = js.eval(jsCode);
 
                 long dt = (System.nanoTime() - t0) / 1_000_000;
                 byte[] px = canvas.getPixels();
                 if (px != null) {
-                    Bitmap bmp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888);
-                    bmp.copyPixelsFromBuffer(ByteBuffer.wrap(px));
-                    imageView.setImageBitmap(bmp);
+                    imageView.setImageBitmap(toBitmap(W, H, px));
                 }
-                status.setText("Hermes RN · " + W + "x" + H + " · " + dt + " ms · " + result);
+                status.setText("Good Vibes | " + W + "x" + H + " | " + dt + "ms | " + result);
             }
         } catch (Throwable t) {
             status.setText("Error: " + t);

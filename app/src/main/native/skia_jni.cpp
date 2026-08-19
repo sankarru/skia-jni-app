@@ -7,6 +7,7 @@
 #include <map>
 #include <dlfcn.h>
 #include <android/log.h>
+#define LOG(...) __android_log_print(ANDROID_LOG_DEBUG, "SkiaJNI", __VA_ARGS__)
 
 // ── Skia core ──────────────────────────────────────────────────────
 #include "include/core/SkCanvas.h"
@@ -108,7 +109,9 @@ static sk_sp<SkTypeface> defaultTypeface() {
 
 static SkCanvas* getCanvas(jlong h) {
     auto nc = reinterpret_cast<NativeCanvas*>(h);
-    return nc && nc->surface ? nc->surface->getCanvas() : nullptr;
+    if (nc && nc->surface) return nc->surface->getCanvas();
+    LOG("getCanvas: INVALID handle=%lld", (long long)h);
+    return nullptr;
 }
 
 // ====================================================================

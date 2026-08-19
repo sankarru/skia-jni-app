@@ -1,7 +1,5 @@
-// ── React Native-style renderer for Hermes + Skia ──
-// Components (View/Text/Button) are laid out with the Yoga flexbox engine
-// (the same layout engine React Native uses) and drawn via Skia host
-// functions. Text is pre-measured in JS and given explicit sizes.
+// ── Good Vibes — React Native-style renderer for Hermes + Skia ──
+// Components laid out with Yoga flexbox, drawn via Skia host functions.
 
 // ── Default styles ────────────────────────────────────────────────────
 
@@ -18,8 +16,8 @@ var DEFAULT_TEXT = {
 };
 
 var DEFAULT_BUTTON = {
-  background: 0xFF2563EB, color: 0xFFFFFFFF, fontSize: 16,
-  fontWeight: "bold", borderRadius: 10, padding: 16, margin: 0,
+  background: 0xFF7C3AED, color: 0xFFFFFFFF, fontSize: 16,
+  fontWeight: "bold", borderRadius: 12, padding: 16, margin: 0,
   borderWidth: 0, borderColor: 0, textAlign: "center",
   alignItems: "center", justifyContent: "center"
 };
@@ -31,7 +29,6 @@ function merge(base, over) {
   return r;
 }
 
-// Resolve the four margins from a style (shorthand `margin` or per-side).
 function margins(s) {
   var m = s.margin || 0;
   return {
@@ -62,52 +59,67 @@ function Button(props, ...children) {
     children: children || [] };
 }
 
-// ── Convenience components ────────────────────────────────────────────
+// ── Custom primitives ─────────────────────────────────────────────────
 
-function Header(title, subtitle) {
-  return View({ style: { padding: 24, paddingTop: 16, paddingBottom: 20, background: 0xFF1E40AF } },
-    Text({ style: { fontSize: 28, fontWeight: "bold", color: 0xFFFFFFFF } }, title),
-    subtitle
-      ? Text({ style: { fontSize: 14, color: 0xFFBFDBFE, marginTop: 6 } }, subtitle)
-      : null
+function ProgressBar(value, max, color, trackColor, h) {
+  value = value || 0;
+  max = max || 100;
+  color = color || 0xFF7C3AED;
+  trackColor = trackColor || 0xFFE2E8F0;
+  h = h || 10;
+  var pct = Math.min(value / max, 1);
+  return View({ style: { height: h, borderRadius: h / 2, background: trackColor } },
+    View({ style: { height: h, borderRadius: h / 2, background: color, width: Math.floor(pct * 300) } })
   );
 }
 
-function StatCard(value, label, desc) {
-  return View({ style: { padding: 16, background: 0xFFFFFFFF, borderRadius: 12,
-      borderWidth: 1, borderColor: 0xFFE2E8F0, flexGrow: 1 } },
-    Text({ style: { fontSize: 24, fontWeight: "bold", color: 0xFF16A34A } }, value),
-    Text({ style: { fontSize: 12, color: 0xFF64748B, marginTop: 4 } }, label),
-    desc
-      ? Text({ style: { fontSize: 12, color: 0xFF94A3B8, marginTop: 4 } }, desc)
-      : null
+function Divider() {
+  return View({ style: { height: 1, background: 0xFFE2E8F0, marginTop: 12, marginBottom: 12 } });
+}
+
+function SectionTitle(text) {
+  return Text({ style: { fontSize: 13, fontWeight: "bold", color: 0xFF94A3B8,
+    letterSpacing: 2 } }, text);
+}
+
+function Badge(text, bgColor, textColor) {
+  return View({ style: { background: bgColor || 0xFFEDE9FE, borderRadius: 6,
+      padding: 4, paddingLeft: 8, paddingRight: 8 } },
+    Text({ style: { fontSize: 11, fontWeight: "bold", color: textColor || 0xFF7C3AED } }, text)
   );
 }
 
-function Card(title, body) {
-  return View({ style: { padding: 16, background: 0xFFFFFFFF, borderRadius: 12,
-      borderWidth: 1, borderColor: 0xFFE2E8F0, flexGrow: 1 } },
-    Text({ style: { fontSize: 16, fontWeight: "bold", color: 0xFF1E40AF } }, title),
-    body
-      ? Text({ style: { fontSize: 13, color: 0xFF475569, marginTop: 4 } }, body)
-      : null
+function StatPill(value, label, color) {
+  return View({ style: { background: 0xFFFFFFFF, borderRadius: 12, padding: 14,
+      borderWidth: 1, borderColor: 0xFFF1F5F9, flexGrow: 1, alignItems: "center" } },
+    Text({ style: { fontSize: 22, fontWeight: "bold", color: color || 0xFF7C3AED } }, value),
+    Text({ style: { fontSize: 11, color: 0xFF94A3B8, marginTop: 2 } }, label)
   );
 }
 
-function Footer(text) {
-  return Text({ style: { fontSize: 12, color: 0xFF64748B, textAlign: "center",
-      marginTop: 24 } }, text);
+function HabitItem(emoji, name, done, color) {
+  color = done ? (color || 0xFF10B981) : 0xFFCBD5E1;
+  var bg = done ? 0xFFECFDF5 : 0xFFF8FAFC;
+  return View({ style: { flexDirection: "row", alignItems: "center", padding: 12,
+      background: bg, borderRadius: 10, gap: 12 } },
+    View({ style: { width: 36, height: 36, borderRadius: 18, background: color,
+        alignItems: "center", justifyContent: "center" } },
+      Text({ style: { fontSize: 16 } }, emoji)
+    ),
+    Text({ style: { fontSize: 15, color: 0xFF334155, fontWeight: done ? "bold" : "normal" } }, name),
+    done
+      ? Badge("done", 0xFFDCFCE7, 0xFF16A34A)
+      : Badge("pending", 0xFFF1F5F9, 0xFF94A3B8)
+  );
 }
 
 // ── Yoga layout tree construction ─────────────────────────────────────
 
-// Build a Yoga node for `node` and its subtree. Returns the YGNode handle.
 function buildYoga(node) {
   var s = node._style;
   var yn = ygNewNode();
   node._yoga = yn;
 
-  // Per-side margins
   var mg = margins(s);
 
   if (node.type === "Text") {
@@ -115,9 +127,11 @@ function buildYoga(node) {
     node._text = txt;
     var fs = s.fontSize || 16;
     var tw = measureText(txt, fs);
+    var textBold = s.fontWeight === "bold";
+    if (textBold) tw = tw + txt.length * 0.8;
     ygSetWidth(yn, tw);
     ygSetHeight(yn, fs * 1.4);
-    ygSetMargin(yn, mg.l); // horizontal margin approximated via all-edge set
+    ygSetMargin(yn, mg.l);
     if (mg.t !== mg.l || mg.b !== mg.l || mg.r !== mg.l) {
       ygSetMarginTop(yn, mg.t);
       ygSetMarginBottom(yn, mg.b);
@@ -126,18 +140,19 @@ function buildYoga(node) {
     }
     node._fs = fs;
     node._color = s.color;
-    node._bold = s.fontWeight === "bold";
+    node._bold = textBold;
     node._align = s.textAlign || "left";
+    node._letterSpacing = s.letterSpacing || 0;
     return yn;
   }
 
   if (node.type === "Button") {
     var bt = node.children.filter(function(c) { return typeof c === "string"; }).join("");
     node._text = bt;
-    var bfs = s.fontSize || 15;
-    var contentW = measureText(bt, bfs);
+    var bfs = s.fontSize || 16;
+    var contentW = measureText(bt, bfs) + bt.length * 0.8;
     var contentH = bfs * 1.4;
-    var pad = s.padding || 12, bor = s.borderWidth || 1;
+    var pad = s.padding || 16, bor = s.borderWidth || 0;
     if (s.width > 0) ygSetWidth(yn, s.width);
     else ygSetWidth(yn, contentW + 2 * (pad + bor));
     if (s.height > 0) ygSetHeight(yn, s.height);
@@ -216,13 +231,12 @@ function renderNode(handle, node, absX, absY, topInset) {
     if (node._align === "center") tx = x + (w - ygGetWidth(yn)) / 2;
     else if (node._align === "right") tx = x + w - ygGetWidth(yn);
     var ty = y + fs;
-    if (node._bold) drawText(handle, node._text, tx + 1, ty, color, fs);
     drawText(handle, node._text, tx, ty, color, fs);
   }
 
-  // Button text (centered by Yoga)
+  // Button text
   if (node.type === "Button" && node._text) {
-    var fs = node._fs || 15;
+    var fs = node._fs || 16;
     var color = node._color || 0xFFFFFFFF;
     var bw = ygGetWidth(yn);
     var bh = ygGetHeight(yn);
@@ -245,7 +259,7 @@ function renderNode(handle, node, absX, absY, topInset) {
 
 function render(handle, root, vpW, vpH, topInset) {
   topInset = topInset || 0;
-  clear(handle, root._style ? (root._style.background || 0xFF0F172A) : 0xFF0F172A);
+  clear(handle, root._style ? (root._style.background || 0xFFF8FAFC) : 0xFFF8FAFC);
   var rootY = buildYoga(root);
   ygSetWidth(rootY, vpW);
   ygSetHeight(rootY, vpH);

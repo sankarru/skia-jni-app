@@ -123,6 +123,7 @@ Java_com_example_skiajni_JsCanvas_nCreate(JNIEnv* env, jclass, jint w, jint h) {
             JNIEnv* e = c->env;
             jlong h = (jlong)(long long)a[0].asNumber();
             jint color = (jint)a[1].asNumber();
+            LOG("clear: handle=%lld color=%d", (long long)h, color);
             e->CallStaticVoidMethod(sCanvasClass, sM.clear, h, color);
             return Value::undefined();
         }));
