@@ -96,14 +96,14 @@ public class MainActivity extends Activity {
 
         switch (ev.getAction()) {
             case MotionEvent.ACTION_DOWN:
-                if (field.contains(tx, ty)) {
+                if (field != null && field.contains(tx, ty)) {
                     field.focused = true;
                     showKeyboard();
-                } else {
+                } else if (field != null) {
                     field.focused = false;
                 }
-                if (submitBtn.contains(tx, ty) || colorBtn.contains(tx, ty)
-                        || clearBtn.contains(tx, ty)) {
+                if (submitBtn != null && (submitBtn.contains(tx, ty) || colorBtn.contains(tx, ty)
+                        || clearBtn.contains(tx, ty))) {
                     if (submitBtn.contains(tx, ty)) submitBtn.pressed = true;
                     if (colorBtn.contains(tx, ty)) colorBtn.pressed = true;
                     if (clearBtn.contains(tx, ty)) clearBtn.pressed = true;
@@ -111,10 +111,12 @@ public class MainActivity extends Activity {
                 render();
                 break;
             case MotionEvent.ACTION_UP:
-                submitBtn.pressed = colorBtn.pressed = clearBtn.pressed = false;
-                if (submitBtn.contains(tx, ty)) onSubmit();
-                else if (colorBtn.contains(tx, ty)) onToggleColor();
-                else if (clearBtn.contains(tx, ty)) onClear();
+                if (submitBtn != null) {
+                    submitBtn.pressed = colorBtn.pressed = clearBtn.pressed = false;
+                    if (submitBtn.contains(tx, ty)) onSubmit();
+                    else if (colorBtn.contains(tx, ty)) onToggleColor();
+                    else if (clearBtn.contains(tx, ty)) onClear();
+                }
                 render();
                 break;
         }
@@ -122,11 +124,11 @@ public class MainActivity extends Activity {
     }
 
     private void onSubmit() {
-        keystrokes = "Submitted: \"" + field.text + "\"";
+        keystrokes = "Submitted: \"" + (field != null ? field.text : "") + "\"";
     }
 
     private void onClear() {
-        field.text = "";
+        if (field != null) field.text = "";
         keystrokes = "Cleared";
     }
 
