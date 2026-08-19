@@ -106,7 +106,12 @@ HERMES_BUILD="${HERMES_BUILD:-$HERMES_DIR/build-android}"
 HERMES_INC="$HERMES_DIR/API"
 HERMES_JSI_INC="$HERMES_DIR/API/jsi"
 HERMES_PUBLIC_INC="$HERMES_DIR/public"
-HERMES_LIB="$HERMES_BUILD/libhermes.a"
+# Hermes produces libhermesvm.a (aggregate static lib) + boost context
+HERMES_LIB="$HERMES_BUILD/libhermesvm.a"
+HERMES_BOOST="$HERMES_BUILD/external/boost/libboost_context.a"
+if [ ! -f "$HERMES_BOOST" ]; then
+    HERMES_BOOST=$(find "$HERMES_BUILD" -name "libboost_context.a" 2>/dev/null | head -1)
+fi
 
 CXXFLAGS="-std=c++17 -fPIC -O2 -DNDEBUG -Wall -Wextra \
     -I${SKIA_DIR} \
@@ -121,16 +126,16 @@ $TOOLCHAIN_DIR/${TRIPLE}-clang++ $CXXFLAGS -c "$SCRIPT_DIR/app/src/main/native/s
 $TOOLCHAIN_DIR/${TRIPLE}-clang++ $CXXFLAGS -c "$SCRIPT_DIR/app/src/main/native/vulkan_renderer.cpp" -o "$BUILD_DIR/vulkan_renderer.o"
 
 if [ -f "$HERMES_LIB" ]; then
-    echo ">>> Linking Hermes (libhermes.a)..."
+    echo ">>> Linking Hermes (libhermesvm.a)..."
     $TOOLCHAIN_DIR/${TRIPLE}-clang++ $CXXFLAGS -c "$SCRIPT_DIR/app/src/main/native/hermes_bridge.cpp" -o "$BUILD_DIR/hermes_bridge.o"
     $TOOLCHAIN_DIR/${TRIPLE}-clang++ -shared \
         -o "$JNI_SO" "$BUILD_DIR/skia_jni.o" "$BUILD_DIR/vulkan_renderer.o" "$BUILD_DIR/hermes_bridge.o" \
         -L"$SKIA_OUT" -lskia \
-        "$HERMES_LIB" \
+        "$HERMES_LIB" ${HERMES_BOOST:+"$HERMES_BOOST"} \
         -llog -landroid -ldl -lm -lz \
         -Wl,--gc-sections -Wl,--strip-all
 else
-    echo ">>> WARNING: libhermes.a not found; building without JS support."
+    echo ">>> WARNING: libhermesvm.a not found; building without JS support."
     $TOOLCHAIN_DIR/${TRIPLE}-clang++ -shared \
         -o "$JNI_SO" "$BUILD_DIR/skia_jni.o" "$BUILD_DIR/vulkan_renderer.o" \
         -L"$SKIA_OUT" -lskia \
