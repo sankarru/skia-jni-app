@@ -25,8 +25,10 @@ static jclass sCanvasClass = nullptr;
 static struct {
     jmethodID clear;
     jmethodID fillRect;
+    jmethodID fillRoundRect;
     jmethodID fillCircle;
     jmethodID drawRect;
+    jmethodID drawRoundRect;
     jmethodID drawCircle;
     jmethodID drawLine;
     jmethodID drawText;
@@ -38,13 +40,15 @@ static void initMethods(JNIEnv* env) {
     jclass cls = env->FindClass("com/example/skiajni/SkiaCanvas");
     sCanvasClass = (jclass)env->NewGlobalRef(cls);
     sM.clear       = env->GetStaticMethodID(cls, "nClear",       "(JI)V");
-    sM.fillRect    = env->GetStaticMethodID(cls, "nFillRect",    "(JFFFFI)V");
-    sM.fillCircle  = env->GetStaticMethodID(cls, "nFillCircle",  "(JFFFI)V");
-    sM.drawRect    = env->GetStaticMethodID(cls, "nDrawRect",    "(JFFFFIF)V");
-    sM.drawCircle  = env->GetStaticMethodID(cls, "nDrawCircle",  "(JFFFIF)V");
-    sM.drawLine    = env->GetStaticMethodID(cls, "nDrawLine",    "(JFFFFIF)V");
-    sM.drawText    = env->GetStaticMethodID(cls, "nDrawText",    "(JLjava/lang/String;FFIF)V");
-    sM.measureText = env->GetStaticMethodID(cls, "nMeasureText", "(Ljava/lang/String;F)F");
+    sM.fillRect     = env->GetStaticMethodID(cls, "nFillRect",     "(JFFFFI)V");
+    sM.fillRoundRect= env->GetStaticMethodID(cls, "nFillRoundRect","(JFFFFFFI)V");
+    sM.fillCircle   = env->GetStaticMethodID(cls, "nFillCircle",   "(JFFFI)V");
+    sM.drawRect     = env->GetStaticMethodID(cls, "nDrawRect",     "(JFFFFIF)V");
+    sM.drawRoundRect= env->GetStaticMethodID(cls, "nDrawRoundRect","(JFFFFFFIF)V");
+    sM.drawCircle   = env->GetStaticMethodID(cls, "nDrawCircle",   "(JFFFIF)V");
+    sM.drawLine     = env->GetStaticMethodID(cls, "nDrawLine",     "(JFFFFIF)V");
+    sM.drawText     = env->GetStaticMethodID(cls, "nDrawText",     "(JLjava/lang/String;FFIF)V");
+    sM.measureText  = env->GetStaticMethodID(cls, "nMeasureText",  "(Ljava/lang/String;F)F");
 }
 
 // Helper to build a host function bound to a ctx.
@@ -99,6 +103,15 @@ Java_com_example_skiajni_JsCanvas_nCreate(JNIEnv* env, jclass, jint w, jint h) {
                 (jfloat)num(a,1),(jfloat)num(a,2),(jfloat)num(a,3),(jint)num(a,4));
             return Value::undefined();
         }));
+    rt.global().setProperty(rt, "fillRoundRect",
+        makeHost(ctx, "fillRoundRect", [](JsCtx* c, Runtime&, const Value* a, size_t) {
+            JNIEnv* e = c->env;
+            jlong h = (jlong)a[0].asNumber();
+            e->CallStaticVoidMethod(sCanvasClass, sM.fillRoundRect, h,
+                (jfloat)num(a,1),(jfloat)num(a,2),(jfloat)num(a,3),(jfloat)num(a,4),
+                (jfloat)num(a,5),(jfloat)num(a,6),(jint)num(a,7));
+            return Value::undefined();
+        }));
     rt.global().setProperty(rt, "drawRect",
         makeHost(ctx, "drawRect", [](JsCtx* c, Runtime&, const Value* a, size_t) {
             JNIEnv* e = c->env;
@@ -106,6 +119,15 @@ Java_com_example_skiajni_JsCanvas_nCreate(JNIEnv* env, jclass, jint w, jint h) {
             e->CallStaticVoidMethod(sCanvasClass, sM.drawRect, h,
                 (jfloat)num(a,1),(jfloat)num(a,2),(jfloat)num(a,3),(jfloat)num(a,4),
                 (jint)num(a,5),(jfloat)num(a,6));
+            return Value::undefined();
+        }));
+    rt.global().setProperty(rt, "drawRoundRect",
+        makeHost(ctx, "drawRoundRect", [](JsCtx* c, Runtime&, const Value* a, size_t) {
+            JNIEnv* e = c->env;
+            jlong h = (jlong)a[0].asNumber();
+            e->CallStaticVoidMethod(sCanvasClass, sM.drawRoundRect, h,
+                (jfloat)num(a,1),(jfloat)num(a,2),(jfloat)num(a,3),(jfloat)num(a,4),
+                (jfloat)num(a,5),(jfloat)num(a,6),(jint)num(a,7),(jfloat)num(a,8));
             return Value::undefined();
         }));
     rt.global().setProperty(rt, "drawCircle",
@@ -135,6 +157,18 @@ Java_com_example_skiajni_JsCanvas_nCreate(JNIEnv* env, jclass, jint w, jint h) {
                 (jfloat)num(a,2),(jfloat)num(a,3),(jint)num(a,4),(jfloat)num(a,5));
             e->DeleteLocalRef(jt);
             return Value::undefined();
+        }));
+
+    // measureText(text, fontSize) -> width (pixels)
+    rt.global().setProperty(rt, "measureText",
+        makeHost(ctx, "measureText", [](JsCtx* c, Runtime& rt, const Value* a, size_t) {
+            JNIEnv* e = c->env;
+            std::string text = a[0].getString(rt).utf8(rt);
+            jstring jt = e->NewStringUTF(text.c_str());
+            jfloat w = e->CallStaticFloatMethod(sCanvasClass, sM.measureText, jt,
+                (jfloat)num(a, 1));
+            e->DeleteLocalRef(jt);
+            return Value(w);
         }));
 
     return reinterpret_cast<jlong>(ctx);

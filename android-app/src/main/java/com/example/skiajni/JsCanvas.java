@@ -26,6 +26,11 @@ public class JsCanvas implements AutoCloseable {
         return nEval(handle, js);
     }
 
+    /** Expose a SkiaCanvas handle as global `_handle` in the JS runtime. */
+    public void setCanvas(SkiaCanvas canvas) {
+        nEval(handle, "var _handle = " + canvas.getNativeHandle() + ";");
+    }
+
     /** Draw a JS-scripted scene onto a SkiaCanvas. `js` defines global
      *  drawing calls using the canvas handle in global var `h`. */
     public String drawScript(String js, SkiaCanvas canvas) {
