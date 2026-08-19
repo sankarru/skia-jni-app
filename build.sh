@@ -40,10 +40,10 @@ for d in freetype harfbuzz icu zlib libpng libjpeg-turbo libwebp expat; do
     fi
 done
 # Expat is prone to cloning as an empty repo via git-sync-deps; clone manually if needed.
-if [ ! -f "third_party/externals/expat/lib/expat.h" ]; then
-    echo ">>> Cloning expat manually..."
+if [ ! -f "third_party/externals/expat/expat/lib/expat.h" ]; then
+    echo ">>> Cloning expat manually (from Chromium mirror)..."
     rm -rf third_party/externals/expat
-    git clone --depth 1 https://github.com/libexpat/libexpat.git third_party/externals/expat
+    git clone https://chromium.googlesource.com/external/github.com/libexpat/libexpat.git third_party/externals/expat
 fi
 
 # ── 4. Build Skia static lib ───────────────────────────────────────
