@@ -17,6 +17,9 @@ public class JsCanvas implements AutoCloseable {
 
     private long handle;
 
+    /** Return the native context handle (needed for nPumpTimers etc.). */
+    public long getHandle() { return handle; }
+
     public JsCanvas(int width, int height) {
         this.handle = nCreate(width, height);
     }
@@ -51,4 +54,8 @@ public class JsCanvas implements AutoCloseable {
     /** Deliver a decoded image handle to a pending JS loadImage() callback.
      *  Called by SkiaCanvas.nFetchImageAsync on the main thread. */
     static native void nDeliverImage(long ctx, long id, long imgHandle);
+
+    /** Advance the JS timer clock and fire any due setTimeout/setInterval callbacks.
+     *  Should be called each frame from the Choreographer render loop. */
+    static native void nPumpTimers(long ctx, long nowMs);
 }

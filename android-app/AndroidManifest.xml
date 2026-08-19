@@ -41,5 +41,10 @@
             android:name=".ReactDemoActivity"
             android:exported="true"
             android:theme="@style/AppTheme" />
+
+        <activity
+            android:name=".RnGalleryActivity"
+            android:exported="true"
+            android:theme="@style/AppTheme" />
     </application>
 </manifest>
