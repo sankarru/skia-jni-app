@@ -101,20 +101,42 @@ JNI_SO="$OUT_DIR/libskia_jni.so"
 mkdir -p "$BUILD_DIR" "$OUT_DIR"
 
 VK_INC="${SKIA_DIR}/include/third_party/vulkan"
+HERMES_DIR="${HERMES_DIR:-$HOME/hermes}"
+HERMES_BUILD="${HERMES_BUILD:-$HERMES_DIR/build-android}"
+HERMES_INC="$HERMES_DIR/API"
+HERMES_JSI_INC="$HERMES_DIR/API/jsi"
+HERMES_PUBLIC_INC="$HERMES_DIR/public"
+HERMES_LIB="$HERMES_BUILD/libhermes.a"
+
 CXXFLAGS="-std=c++17 -fPIC -O2 -DNDEBUG -Wall -Wextra \
     -I${SKIA_DIR} \
     -I${SKIA_DIR}/include \
     -I${VK_INC} \
+    -I${HERMES_INC} \
+    -I${HERMES_JSI_INC} \
+    -I${HERMES_PUBLIC_INC} \
     -I${NDK}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include"
 
 $TOOLCHAIN_DIR/${TRIPLE}-clang++ $CXXFLAGS -c "$SCRIPT_DIR/app/src/main/native/skia_jni.cpp" -o "$BUILD_DIR/skia_jni.o"
 $TOOLCHAIN_DIR/${TRIPLE}-clang++ $CXXFLAGS -c "$SCRIPT_DIR/app/src/main/native/vulkan_renderer.cpp" -o "$BUILD_DIR/vulkan_renderer.o"
 
-$TOOLCHAIN_DIR/${TRIPLE}-clang++ -shared \
-    -o "$JNI_SO" "$BUILD_DIR/skia_jni.o" "$BUILD_DIR/vulkan_renderer.o" \
-    -L"$SKIA_OUT" -lskia \
-    -llog -landroid -ldl -lm -lz \
-    -Wl,--gc-sections -Wl,--strip-all
+if [ -f "$HERMES_LIB" ]; then
+    echo ">>> Linking Hermes (libhermes.a)..."
+    $TOOLCHAIN_DIR/${TRIPLE}-clang++ $CXXFLAGS -c "$SCRIPT_DIR/app/src/main/native/hermes_bridge.cpp" -o "$BUILD_DIR/hermes_bridge.o"
+    $TOOLCHAIN_DIR/${TRIPLE}-clang++ -shared \
+        -o "$JNI_SO" "$BUILD_DIR/skia_jni.o" "$BUILD_DIR/vulkan_renderer.o" "$BUILD_DIR/hermes_bridge.o" \
+        -L"$SKIA_OUT" -lskia \
+        "$HERMES_LIB" \
+        -llog -landroid -ldl -lm -lz \
+        -Wl,--gc-sections -Wl,--strip-all
+else
+    echo ">>> WARNING: libhermes.a not found; building without JS support."
+    $TOOLCHAIN_DIR/${TRIPLE}-clang++ -shared \
+        -o "$JNI_SO" "$BUILD_DIR/skia_jni.o" "$BUILD_DIR/vulkan_renderer.o" \
+        -L"$SKIA_OUT" -lskia \
+        -llog -landroid -ldl -lm -lz \
+        -Wl,--gc-sections -Wl,--strip-all
+fi
 
 # Ship libc++_shared.so alongside the JNI lib (NDK C++ runtime).
 SYSROOT_LIB="$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/${TARGET}"

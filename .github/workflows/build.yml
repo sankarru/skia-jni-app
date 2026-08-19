@@ -29,10 +29,19 @@ jobs:
           echo "Using NDK at: $NDK"
           ls "$NDK/sources/android/cpufeatures/" 2>&1 || true
 
+      - name: Build Hermes (aarch64-android)
+        env:
+          HERMES_DIR: ${{ github.workspace }}/hermes
+        run: |
+          chmod +x build_hermes.sh
+          ./build_hermes.sh
+
       - name: Build Skia + JNI .so
         env:
           SKIA_DIR: ${{ github.workspace }}/skia
           DEPOT_TOOLS: ${{ github.workspace }}/depot_tools
+          HERMES_DIR: ${{ github.workspace }}/hermes
+          HERMES_BUILD: ${{ github.workspace }}/hermes/build-android
         run: |
           chmod +x build.sh
           ./build.sh

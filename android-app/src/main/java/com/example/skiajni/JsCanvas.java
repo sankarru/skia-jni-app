@@ -1,0 +1,45 @@
+package com.example.skiajni;
+
+/**
+ * Runs JavaScript via the Hermes engine and lets it draw through Skia.
+ *
+ * Usage:
+ *   JsCanvas js = new JsCanvas();
+ *   js.eval("clear(h, 0xFFFAFAFA); fillCircle(h, 200, 300, 100, 0xFFFF0000);");
+ *   js.destroy();
+ *
+ * In JS, `h` is the current Skia canvas handle. Global functions are
+ * available: clear, fillRect, fillCircle, drawRect, drawCircle, drawLine, drawText.
+ */
+public class JsCanvas implements AutoCloseable {
+
+    static { System.loadLibrary("skia_jni"); }
+
+    private long handle;
+
+    public JsCanvas(int width, int height) {
+        this.handle = nCreate(width, height);
+    }
+
+    /** Evaluate JS source; returns the script result or error message. */
+    public String eval(String js) {
+        return nEval(handle, js);
+    }
+
+    /** Draw a JS-scripted scene onto a SkiaCanvas. `js` defines global
+     *  drawing calls using the canvas handle in global var `h`. */
+    public String drawScript(String js, SkiaCanvas canvas) {
+        // Expose the canvas handle as `h` and run the script.
+        String wrapped = "var h = " + canvas.getNativeHandle() + ";\n" + js;
+        return nEval(handle, wrapped);
+    }
+
+    @Override
+    public void close() {
+        if (handle != 0) { nDestroy(handle); handle = 0; }
+    }
+
+    private static native long nCreate(int w, int h);
+    private static native void nDestroy(long h);
+    private static native String nEval(long h, String js);
+}

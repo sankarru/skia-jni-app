@@ -43,6 +43,9 @@ public class SkiaCanvas implements AutoCloseable {
     public int getWidth()  { return width; }
     public int getHeight() { return height; }
 
+    /** Returns the native canvas handle (used by the JS/Hermes bridge). */
+    long getNativeHandle() { return handle; }
+
     // ── Drawing ─────────────────────────────────────────────────────
 
     public void clear(int color)                                          { check(); nClear(handle, color); }

@@ -31,5 +31,9 @@
         <activity
             android:name=".ImageGalleryActivity"
             android:exported="true" />
+
+        <activity
+            android:name=".JsSceneActivity"
+            android:exported="true" />
     </application>
 </manifest>
