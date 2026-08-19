@@ -3,6 +3,7 @@
 #include <string>
 #include <memory>
 #include <functional>
+#include <unordered_map>
 
 #include <jsi/jsi.h>
 #include <hermes/hermes.h>
@@ -23,6 +24,10 @@ struct JsCtx {
     std::unique_ptr<Runtime> runtime;
     JNIEnv* env = nullptr;      // thread-local env of the creating thread
     jlong canvasHandle = 0;     // current Skia canvas the JS draws to
+    // Pending async image loads: id -> JS callback(handle). The Java side
+    // delivers the decoded Skia image handle via nDeliverImage.
+    uint64_t nextLoadId = 1;
+    std::unordered_map<uint64_t, Function> pendingLoads;
 };
 
 // Cached JNI method IDs for SkiaCanvas natives.
@@ -38,6 +43,17 @@ static struct {
     jmethodID drawLine;
     jmethodID drawText;
     jmethodID measureText;
+    jmethodID nImageCreateFromBytes;
+    jmethodID nImageDestroy;
+    jmethodID nImageGetWidth;
+    jmethodID nImageGetHeight;
+    jmethodID nDrawImage;
+    jmethodID nDrawImageRounded;
+    jmethodID nFetchImageAsync;
+    jmethodID nSave;
+    jmethodID nRestore;
+    jmethodID nTranslate;
+    jmethodID nScale;
 } sM;
 
 static void initMethods(JNIEnv* env) {
@@ -54,6 +70,17 @@ static void initMethods(JNIEnv* env) {
     sM.drawLine     = env->GetStaticMethodID(cls, "nDrawLine",     "(JFFFFIF)V");
     sM.drawText     = env->GetStaticMethodID(cls, "nDrawText",     "(JLjava/lang/String;FFIF)V");
     sM.measureText  = env->GetStaticMethodID(cls, "nMeasureText",  "(Ljava/lang/String;F)F");
+    sM.nImageCreateFromBytes = env->GetStaticMethodID(cls, "nImageCreateFromBytes", "([B)J");
+    sM.nImageDestroy = env->GetStaticMethodID(cls, "nImageDestroy", "(J)V");
+    sM.nImageGetWidth = env->GetStaticMethodID(cls, "nImageGetWidth", "(J)I");
+    sM.nImageGetHeight = env->GetStaticMethodID(cls, "nImageGetHeight", "(J)I");
+    sM.nDrawImage = env->GetStaticMethodID(cls, "nDrawImage", "(JJFFFFF)V");
+    sM.nDrawImageRounded = env->GetStaticMethodID(cls, "nDrawImageRounded", "(JJFFFFF)V");
+    sM.nFetchImageAsync = env->GetStaticMethodID(cls, "nFetchImageAsync", "(Ljava/lang/String;JJ)V");
+    sM.nSave = env->GetStaticMethodID(cls, "nSave", "(J)V");
+    sM.nRestore = env->GetStaticMethodID(cls, "nRestore", "(J)V");
+    sM.nTranslate = env->GetStaticMethodID(cls, "nTranslate", "(JFF)V");
+    sM.nScale = env->GetStaticMethodID(cls, "nScale", "(JFF)V");
 }
 
 // Helper to build a host function bound to a ctx.
@@ -73,6 +100,11 @@ static inline double num(const Value* args, size_t i) { return args[i].getNumber
 // so we route through uint32_t first for a well-defined bit reinterpretation.
 static inline jint colorJint(const Value* args, size_t i) {
     return (jint)(uint32_t)(int64_t)num(args, i);
+}
+
+// Convenience: call a static void method with a single long arg.
+static inline void e_call(JsCtx* c, jmethodID m, jlong v) {
+    c->env->CallStaticVoidMethod(sCanvasClass, m, v);
 }
 
 // ── Yoga enum mappers ────────────────────────────────────────────────
@@ -215,6 +247,86 @@ Java_com_example_skiajni_JsCanvas_nCreate(JNIEnv* env, jclass, jint w, jint h) {
                 (jfloat)num(a, 1));
             e->DeleteLocalRef(jt);
             return Value(w);
+        }));
+
+    // ── Transforms (for scrolling / composition) ─────────────────────
+    rt.global().setProperty(rt, "save",
+        makeHost(ctx, "save", [](JsCtx* c, Runtime&, const Value* a, size_t) {
+            e_call(c, sM.nSave, (jlong)a[0].asNumber());
+            return Value::undefined();
+        }));
+    rt.global().setProperty(rt, "restore",
+        makeHost(ctx, "restore", [](JsCtx* c, Runtime&, const Value* a, size_t) {
+            e_call(c, sM.nRestore, (jlong)a[0].asNumber());
+            return Value::undefined();
+        }));
+    rt.global().setProperty(rt, "translate",
+        makeHost(ctx, "translate", [](JsCtx* c, Runtime&, const Value* a, size_t) {
+            JNIEnv* e = c->env;
+            e->CallStaticVoidMethod(sCanvasClass, sM.nTranslate,
+                (jlong)a[0].asNumber(), (jfloat)num(a,1), (jfloat)num(a,2));
+            return Value::undefined();
+        }));
+    rt.global().setProperty(rt, "scale",
+        makeHost(ctx, "scale", [](JsCtx* c, Runtime&, const Value* a, size_t) {
+            JNIEnv* e = c->env;
+            e->CallStaticVoidMethod(sCanvasClass, sM.nScale,
+                (jlong)a[0].asNumber(), (jfloat)num(a,1), (jfloat)num(a,2));
+            return Value::undefined();
+        }));
+
+    // ── Images ───────────────────────────────────────────────────────
+    // drawImage(handle, img, x, y, w, h, alpha)
+    rt.global().setProperty(rt, "drawImage",
+        makeHost(ctx, "drawImage", [](JsCtx* c, Runtime&, const Value* a, size_t) {
+            JNIEnv* e = c->env;
+            e->CallStaticVoidMethod(sCanvasClass, sM.nDrawImage,
+                (jlong)a[0].asNumber(), (jlong)a[1].asNumber(),
+                (jfloat)num(a,2),(jfloat)num(a,3),(jfloat)num(a,4),(jfloat)num(a,5),(jfloat)num(a,6));
+            return Value::undefined();
+        }));
+    // drawImageRounded(handle, img, x, y, w, h, radius)
+    rt.global().setProperty(rt, "drawImageRounded",
+        makeHost(ctx, "drawImageRounded", [](JsCtx* c, Runtime&, const Value* a, size_t) {
+            JNIEnv* e = c->env;
+            e->CallStaticVoidMethod(sCanvasClass, sM.nDrawImageRounded,
+                (jlong)a[0].asNumber(), (jlong)a[1].asNumber(),
+                (jfloat)num(a,2),(jfloat)num(a,3),(jfloat)num(a,4),(jfloat)num(a,5),(jfloat)num(a,6));
+            return Value::undefined();
+        }));
+    // imageWidth(img), imageHeight(img)
+    rt.global().setProperty(rt, "imageWidth",
+        makeHost(ctx, "imageWidth", [](JsCtx* c, Runtime&, const Value* a, size_t) {
+            JNIEnv* e = c->env;
+            return Value(e->CallStaticIntMethod(sCanvasClass, sM.nImageGetWidth, (jlong)a[0].asNumber()));
+        }));
+    rt.global().setProperty(rt, "imageHeight",
+        makeHost(ctx, "imageHeight", [](JsCtx* c, Runtime&, const Value* a, size_t) {
+            JNIEnv* e = c->env;
+            return Value(e->CallStaticIntMethod(sCanvasClass, sM.nImageGetHeight, (jlong)a[0].asNumber()));
+        }));
+    // destroyImage(img)
+    rt.global().setProperty(rt, "destroyImage",
+        makeHost(ctx, "destroyImage", [](JsCtx* c, Runtime&, const Value* a, size_t) {
+            JNIEnv* e = c->env;
+            e->CallStaticVoidMethod(sCanvasClass, sM.nImageDestroy, (jlong)a[0].asNumber());
+            return Value::undefined();
+        }));
+    // loadImage(url, callback) — async. callback(imageHandle) on success,
+    // callback(0) on failure. Downloads + decodes on a background thread.
+    rt.global().setProperty(rt, "loadImage",
+        makeHost(ctx, "loadImage", [ctx](JsCtx* c, Runtime& rt, const Value* a, size_t n) {
+            if (n < 2 || !a[1].isObject()) return Value(0.0);
+            std::string url = a[0].getString(rt).utf8(rt);
+            Function cb = a[1].getObject(rt).asFunction(rt);
+            uint64_t id = c->nextLoadId++;
+            c->pendingLoads.emplace(id, std::move(cb));
+            JNIEnv* e = c->env;
+            jstring ju = e->NewStringUTF(url.c_str());
+            e->CallStaticVoidMethod(sCanvasClass, sM.nFetchImageAsync,
+                ju, reinterpret_cast<jlong>(c), (jlong)id);
+            e->DeleteLocalRef(ju);
+            return Value(0.0);
         }));
 
     // ── Yoga flexbox layout host functions ──────────────────────────
@@ -373,6 +485,26 @@ Java_com_example_skiajni_JsCanvas_nCreate(JNIEnv* env, jclass, jint w, jint h) {
 JNIEXPORT void JNICALL
 Java_com_example_skiajni_JsCanvas_nDestroy(JNIEnv*, jclass, jlong h) {
     delete reinterpret_cast<JsCtx*>(h);
+}
+
+// Called by Java (on the Hermes thread) once a URL image has been decoded.
+// Delivers the Skia image handle to the JS callback stored by loadImage().
+// handle == 0 means the fetch/decode failed.
+JNIEXPORT void JNICALL
+Java_com_example_skiajni_JsCanvas_nDeliverImage(JNIEnv* env, jclass, jlong ctxHandle, jlong id, jlong imgHandle) {
+    auto* ctx = reinterpret_cast<JsCtx*>(ctxHandle);
+    if (!ctx || !ctx->runtime) { if (imgHandle) { /* leak-safe */ } return; }
+    ctx->env = env;
+    auto it = ctx->pendingLoads.find((uint64_t)id);
+    if (it == ctx->pendingLoads.end()) return;
+    Function cb = std::move(it->second);
+    ctx->pendingLoads.erase(it);
+    try {
+        auto& rt = *ctx->runtime;
+        cb.call(rt, { Value((double)(long long)imgHandle) });
+    } catch (const JSError&) {
+        // JS callback threw; ignore so the native call completes.
+    }
 }
 
 // Evaluate JS and return the result (or error) as a string.

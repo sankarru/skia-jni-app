@@ -1,5 +1,8 @@
 package com.example.skiajni;
 
+import android.os.Handler;
+import android.os.Looper;
+
 /**
  * Reusable JNI wrapper around Skia 2D rendering.
  * Supports both raster (CPU) and Vulkan (GPU) backends.
@@ -93,6 +96,25 @@ public class SkiaCanvas implements AutoCloseable {
     }
     public void drawImageRounded(long img, float x, float y, float w, float h, float r) {
         check(); nDrawImageRounded(handle, img, x, y, w, h, r);
+    }
+
+    /**
+     * Async image loader used by the Hermes bridge's {@code loadImage(url, cb)}.
+     * Downloads {@code url} on a background thread, decodes it into a Skia image,
+     * then delivers the image handle to the JS callback (via JsCanvas.nDeliverImage)
+     * on the main thread. Passes 0 on failure.
+     *
+     * @param ctx handle to the Hermes JsCtx
+     * @param id  pending-load id that the JS callback is keyed by
+     */
+    public static void nFetchImageAsync(String url, long ctx, long id) {
+        new Thread(() -> {
+            byte[] bytes = ImageLoader.fetchSync(url);
+            long img = (bytes != null) ? nImageCreateFromBytes(bytes) : 0;
+            final long fImg = img;
+            new Handler(Looper.getMainLooper()).post(() ->
+                JsCanvas.nDeliverImage(ctx, id, fImg));
+        }, "img-async").start();
     }
 
     /** Returns raw RGBA pixels (w*h*4 bytes), or null on failure. */

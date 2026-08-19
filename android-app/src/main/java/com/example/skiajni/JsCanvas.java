@@ -47,4 +47,8 @@ public class JsCanvas implements AutoCloseable {
     private static native long nCreate(int w, int h);
     private static native void nDestroy(long h);
     private static native String nEval(long h, String js);
+
+    /** Deliver a decoded image handle to a pending JS loadImage() callback.
+     *  Called by SkiaCanvas.nFetchImageAsync on the main thread. */
+    static native void nDeliverImage(long ctx, long id, long imgHandle);
 }
