@@ -18,22 +18,22 @@ import java.util.List;
 
 /**
  * Smooth infinite-scroll online image viewer rendered via Skia.
- * Renders only the visible cards each frame at a reduced internal
- * resolution (fast CPU readback), then upscales — Compose-like smoothness.
+ * Pre-renders the feed into a tall offscreen canvas at reduced resolution
+ * (cheap rebuild), then scrolls by hardware-accelerated bitmap cropping
+ * (zero per-frame Skia work) with vsync fling physics.
  */
 public class ImageGalleryActivity extends Activity {
 
     private int W, H;              // display size
     private int RW, RH;            // internal render size (reduced)
-    private float scale;           // internal -> display scale
-    private static final float CARD_H_R = 300f; // card height in render space
+    private float scale;
     private static final int PAGE_SIZE = 5;
+    private float CARD_H;
 
     private static class Item {
         long imageHandle = 0;
         byte[] bytes = null;
         boolean loading = false;
-        int srcW = 0, srcH = 0;
     }
 
     private final List<Item> items = new ArrayList<>();
@@ -41,16 +41,24 @@ public class ImageGalleryActivity extends Activity {
     private ImageView imageView;
     private TextView status;
 
-    private SkiaCanvas canvas;
-    private Bitmap renderBitmap;
+    // Offscreen pre-rendered feed (at reduced resolution)
+    private SkiaCanvas contentCanvas;
+    private Bitmap contentBitmap;
+    private int contentHeight = 0;
 
-    // Scroll state (in render space)
+    // Viewport crop (hardware-accelerated)
+    private Bitmap viewBitmap;
+    private android.graphics.Canvas viewCanvas;
+
+    // Scroll + fling
     private float scrollY = 0;
     private float velocity = 0;
-    private float lastTouchDY = 0;
+    private float lastTouchY = 0;
     private boolean dragging = false;
     private long lastFrameNs = 0;
+    private boolean needsRebuild = true;
 
+    // Loading
     private boolean loading = false;
     private int pendingFetches = 0;
     private int loadedPages = 0;
@@ -66,11 +74,11 @@ public class ImageGalleryActivity extends Activity {
         W = dm.widthPixels;
         H = dm.heightPixels;
 
-        // Internal render resolution ~ 720 wide for fast readback
+        // Render at 720 wide for cheap rebuilds
         scale = W / 720f;
         RW = 720;
         RH = (int) (H / scale);
-        CARD_H = CARD_H_R * scale;
+        CARD_H = 320f; // card height in render space
 
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
@@ -98,8 +106,6 @@ public class ImageGalleryActivity extends Activity {
         startRenderLoop();
     }
 
-    private float CARD_H;
-
     private void startRenderLoop() {
         Choreographer.getInstance().postFrameCallback(new Choreographer.FrameCallback() {
             @Override public void doFrame(long t) {
@@ -121,7 +127,8 @@ public class ImageGalleryActivity extends Activity {
             maybeLoadMore();
         }
         lastFrameNs = frameTimeNanos;
-        renderVisible();
+        if (needsRebuild) rebuildContent();
+        showViewport(); // cheap: hardware-accelerated crop
     }
 
     private void clampScroll() {
@@ -134,12 +141,11 @@ public class ImageGalleryActivity extends Activity {
     private void handleTouch(MotionEvent ev) {
         switch (ev.getAction()) {
             case MotionEvent.ACTION_DOWN:
-                dragging = true; velocity = 0;
-                lastTouchDY = ev.getY() / scale;
+                dragging = true; velocity = 0; lastTouchY = ev.getY() / scale;
                 break;
             case MotionEvent.ACTION_MOVE:
-                float dy = ev.getY() / scale - lastTouchDY;
-                lastTouchDY = ev.getY() / scale;
+                float dy = ev.getY() / scale - lastTouchY;
+                lastTouchY = ev.getY() / scale;
                 scrollY -= dy;
                 velocity = -dy;
                 clampScroll();
@@ -173,55 +179,63 @@ public class ImageGalleryActivity extends Activity {
                 items.get(idx).loading = false;
                 pendingFetches--;
                 if (pendingFetches == 0) loading = false;
+                runOnUiThread(() -> needsRebuild = true);
             });
         }
         loadedPages++;
+        needsRebuild = true;
     }
 
-    // Decode pending bytes into Skia image handles (reuses the same canvas).
-    private void decodePending(SkiaCanvas c) {
+    // Rebuild the tall offscreen feed (only when content changes, at low res).
+    private void rebuildContent() {
+        needsRebuild = false;
+        int newHeight = (int) (items.size() * CARD_H);
+        if (contentHeight < newHeight) contentHeight = newHeight;
+
+        if (contentCanvas != null) contentCanvas.close();
+        contentCanvas = new SkiaCanvas(RW, contentHeight);
+
         for (Item it : items) {
             if (it.bytes != null) {
-                if (it.imageHandle != 0) c.destroyImage(it.imageHandle);
-                it.imageHandle = c.createImage(it.bytes);
-                it.srcW = c.imageWidth(it.imageHandle);
-                it.srcH = c.imageHeight(it.imageHandle);
+                if (it.imageHandle != 0) contentCanvas.destroyImage(it.imageHandle);
+                it.imageHandle = contentCanvas.createImage(it.bytes);
                 it.bytes = null;
             }
+        }
+
+        drawFeed(contentCanvas);
+        byte[] px = contentCanvas.getPixels();
+        if (px != null) {
+            if (contentBitmap != null) contentBitmap.recycle();
+            contentBitmap = Bitmap.createBitmap(RW, contentHeight, Bitmap.Config.ARGB_8888);
+            contentBitmap.copyPixelsFromBuffer(ByteBuffer.wrap(px));
         }
         updateStatus();
     }
 
-    // Render ONLY visible cards each frame at reduced resolution.
-    private void renderVisible() {
-        try {
-            if (canvas == null) canvas = new SkiaCanvas(RW, RH);
-            decodePending(canvas);
+    // Cheap, hardware-accelerated crop of the cached content bitmap.
+    private void showViewport() {
+        if (contentBitmap == null) return;
+        int y = (int) scrollY;
+        if (y + RH > contentHeight) y = Math.max(0, contentHeight - RH);
+        if (y < 0) y = 0;
 
-            canvas.clear(0xFF101014);
-            int first = (int) (scrollY / CARD_H);
-            int last = (int) ((scrollY + RH) / CARD_H) + 1;
-            if (first < 0) first = 0;
-            if (last >= items.size()) last = items.size() - 1;
+        if (viewBitmap == null) {
+            viewBitmap = Bitmap.createBitmap(RW, RH, Bitmap.Config.ARGB_8888);
+            viewCanvas = new android.graphics.Canvas(viewBitmap);
+        }
+        viewCanvas.drawColor(0xFF101014);
+        android.graphics.Rect src = new android.graphics.Rect(0, y, RW, y + RH);
+        android.graphics.Rect dst = new android.graphics.Rect(0, 0, RW, RH);
+        viewCanvas.drawBitmap(contentBitmap, src, dst, null);
+        imageView.setImageBitmap(viewBitmap);
+    }
 
-            for (int i = first; i <= last; i++) {
-                float y = i * CARD_H - scrollY;
-                drawCard(canvas, items.get(i), i, y);
-            }
-
-            // bottom loader
-            float contentH = items.size() * CARD_H;
-            if (scrollY + RH > contentH - RH * 0.3f) {
-                canvas.drawText("loading more...", RW / 2 - 100, RH - 40, 0xFFFFFFFF, 24);
-            }
-
-            byte[] px = canvas.getPixels();
-            if (px != null) {
-                if (renderBitmap == null) renderBitmap = Bitmap.createBitmap(RW, RH, Bitmap.Config.ARGB_8888);
-                renderBitmap.copyPixelsFromBuffer(ByteBuffer.wrap(px));
-                imageView.setImageBitmap(renderBitmap);
-            }
-        } catch (Throwable ignored) {}
+    private void drawFeed(SkiaCanvas c) {
+        c.clear(0xFF101014);
+        for (int i = 0; i < items.size(); i++) {
+            drawCard(c, items.get(i), i, i * CARD_H);
+        }
     }
 
     private void drawCard(SkiaCanvas c, Item it, int index, float y) {
@@ -258,6 +272,6 @@ public class ImageGalleryActivity extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
-        if (canvas != null) { canvas.close(); canvas = null; }
+        if (contentCanvas != null) { contentCanvas.close(); contentCanvas = null; }
     }
 }
