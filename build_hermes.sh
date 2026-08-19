@@ -13,10 +13,26 @@ if [ ! -d "$HERMES_DIR/.git" ]; then
     git clone --depth 1 https://github.com/facebook/hermes.git "$HERMES_DIR"
 fi
 
+# Provide a minimal fbjni stub so hermes.cpp compiles under NDK's __ANDROID__.
+# Hermes uses ThreadScope from fbjni for JVM finalizer threads — we don't need
+# that functionality since we use Hermes as a standalone JSI runtime (no JVM).
+FBJNI_STUB="$HERMES_DIR/external/fbjni"
+mkdir -p "$FBJNI_STUB/fbjni"
+cat > "$FBJNI_STUB/fbjni/fbjni.h" <<'STUB'
+#pragma once
+#ifdef __ANDROID__
+namespace facebook { namespace jni {
+struct ThreadScope {
+  ThreadScope() {}
+  ~ThreadScope() {}
+};
+}}
+#endif
+STUB
+
 # --- Stage 1: native host hermesc ---
 HOST_BUILD="$HERMES_DIR/build-host"
 mkdir -p "$HOST_BUILD"
-cd "$HOST_BUILD"
 
 echo ">>> Stage 1: Building native hermesc + shermes (x86_64)..."
 cmake -S "$HERMES_DIR" -B "$HOST_BUILD" \
@@ -49,7 +65,6 @@ fi
 # --- Stage 2: cross-compile for aarch64-android ---
 BUILD_DIR="$HERMES_DIR/build-android"
 rm -rf "$BUILD_DIR"
-mkdir -p "$BUILD_DIR"
 echo ">>> Stage 2: Configuring Hermes (aarch64-android)..."
 cmake -S "$HERMES_DIR" -B "$BUILD_DIR" \
     -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
@@ -62,6 +77,7 @@ cmake -S "$HERMES_DIR" -B "$BUILD_DIR" \
     -DHERMES_ENABLE_DEBUGGER=OFF \
     -DBUILD_TESTING=OFF \
     -DBUILD_SHARED_LIBS=OFF \
+    -DCMAKE_CXX_FLAGS="-I$FBJNI_STUB" \
     -DIMPORT_HOST_COMPILERS="$IMPORT_CMAKE"
 
 echo ">>> Building libhermes.a (parallel=$JOBS)..."
