@@ -35,5 +35,9 @@
         <activity
             android:name=".JsSceneActivity"
             android:exported="true" />
+
+        <activity
+            android:name=".HtmlActivity"
+            android:exported="true" />
     </application>
 </manifest>
