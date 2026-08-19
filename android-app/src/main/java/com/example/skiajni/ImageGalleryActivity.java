@@ -18,9 +18,9 @@ import java.util.List;
 
 /**
  * Smooth infinite-scroll online image viewer rendered via Skia.
- * Pre-renders the feed into a tall offscreen canvas at reduced resolution
- * (cheap rebuild), then scrolls by hardware-accelerated bitmap cropping
- * (zero per-frame Skia work) with vsync fling physics.
+ * Each card is pre-rendered once into its own cached bitmap, so loading a
+ * new image only re-renders that one card (no full-feed rebuild). Scrolling
+ * composes visible cards via hardware-accelerated blits — zero jank.
  */
 public class ImageGalleryActivity extends Activity {
 
@@ -34,6 +34,10 @@ public class ImageGalleryActivity extends Activity {
         long imageHandle = 0;
         byte[] bytes = null;
         boolean loading = false;
+
+        // This card's pre-rendered bitmap (re-created only when its image loads)
+        SkiaCanvas cardCanvas = null;
+        Bitmap cardBitmap = null;
     }
 
     private final List<Item> items = new ArrayList<>();
@@ -41,12 +45,6 @@ public class ImageGalleryActivity extends Activity {
     private ImageView imageView;
     private TextView status;
 
-    // Offscreen pre-rendered feed (at reduced resolution)
-    private SkiaCanvas contentCanvas;
-    private Bitmap contentBitmap;
-    private int contentHeight = 0;
-
-    // Viewport crop (hardware-accelerated)
     private Bitmap viewBitmap;
     private android.graphics.Canvas viewCanvas;
 
@@ -56,9 +54,7 @@ public class ImageGalleryActivity extends Activity {
     private float lastTouchY = 0;
     private boolean dragging = false;
     private long lastFrameNs = 0;
-    private boolean needsRebuild = true;
 
-    // Loading
     private boolean loading = false;
     private int pendingFetches = 0;
     private int loadedPages = 0;
@@ -74,11 +70,10 @@ public class ImageGalleryActivity extends Activity {
         W = dm.widthPixels;
         H = dm.heightPixels;
 
-        // Render at 720 wide for cheap rebuilds
         scale = W / 720f;
         RW = 720;
         RH = (int) (H / scale);
-        CARD_H = 320f; // card height in render space
+        CARD_H = 320f;
 
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
@@ -127,8 +122,7 @@ public class ImageGalleryActivity extends Activity {
             maybeLoadMore();
         }
         lastFrameNs = frameTimeNanos;
-        if (needsRebuild) rebuildContent();
-        showViewport(); // cheap: hardware-accelerated crop
+        showViewport(); // compose visible cached cards
     }
 
     private void clampScroll() {
@@ -167,87 +161,106 @@ public class ImageGalleryActivity extends Activity {
         if (loading) return;
         loading = true;
         int start = items.size();
-        for (int i = 0; i < PAGE_SIZE; i++) items.add(new Item());
+        for (int i = 0; i < PAGE_SIZE; i++) {
+            Item it = new Item();
+            items.add(it);
+            it.loading = true;
+            renderCard(it, false, start + i); // placeholder immediately (cheap)
+        }
         for (int i = 0; i < PAGE_SIZE; i++) {
             final int idx = start + i;
             int seed = 100 + loadedPages * PAGE_SIZE + i;
             final String url = "https://picsum.photos/seed/g" + seed + "/600/400";
-            items.get(idx).loading = true;
             pendingFetches++;
             ImageLoader.fetch(url, bytes -> {
-                items.get(idx).bytes = bytes;
-                items.get(idx).loading = false;
+                Item it = items.get(idx);
+                it.bytes = bytes;
+                it.loading = false;
                 pendingFetches--;
                 if (pendingFetches == 0) loading = false;
-                runOnUiThread(() -> needsRebuild = true);
+                runOnUiThread(() -> {
+                    renderCard(it, true, idx); // re-render ONLY this card
+                    updateStatus();
+                });
             });
         }
         loadedPages++;
-        needsRebuild = true;
     }
 
-    // Rebuild the tall offscreen feed (only when content changes, at low res).
-    private void rebuildContent() {
-        needsRebuild = false;
-        int newHeight = (int) (items.size() * CARD_H);
-        if (contentHeight < newHeight) contentHeight = newHeight;
-
-        if (contentCanvas != null) contentCanvas.close();
-        contentCanvas = new SkiaCanvas(RW, contentHeight);
-
-        for (Item it : items) {
-            if (it.bytes != null) {
-                if (it.imageHandle != 0) contentCanvas.destroyImage(it.imageHandle);
-                it.imageHandle = contentCanvas.createImage(it.bytes);
-                it.bytes = null;
-            }
+    // Render a single card into its own cached canvas/bitmap.
+    // Replaces the card's bitmap only (cheap, no full-feed rebuild).
+    private void renderCard(Item it, boolean withImage, int index) {
+        if (withImage && it.bytes != null) {
+            if (it.cardCanvas != null) it.cardCanvas.close();
+            it.cardCanvas = new SkiaCanvas(RW, (int) CARD_H);
+            if (it.imageHandle != 0) it.cardCanvas.destroyImage(it.imageHandle);
+            it.imageHandle = it.cardCanvas.createImage(it.bytes);
+            it.bytes = null;
+            drawCard(it.cardCanvas, it, index);
+        } else {
+            if (it.cardCanvas != null) it.cardCanvas.close();
+            it.cardCanvas = new SkiaCanvas(RW, (int) CARD_H);
+            drawCard(it.cardCanvas, it, index);
         }
 
-        drawFeed(contentCanvas);
-        byte[] px = contentCanvas.getPixels();
+        byte[] px = it.cardCanvas.getPixels();
         if (px != null) {
-            if (contentBitmap != null) contentBitmap.recycle();
-            contentBitmap = Bitmap.createBitmap(RW, contentHeight, Bitmap.Config.ARGB_8888);
-            contentBitmap.copyPixelsFromBuffer(ByteBuffer.wrap(px));
+            if (it.cardBitmap != null) it.cardBitmap.recycle();
+            it.cardBitmap = Bitmap.createBitmap(RW, (int) CARD_H, Bitmap.Config.ARGB_8888);
+            it.cardBitmap.copyPixelsFromBuffer(ByteBuffer.wrap(px));
         }
-        updateStatus();
     }
 
-    // Cheap, hardware-accelerated crop of the cached content bitmap.
+    // Compose the viewport from cached card bitmaps (hardware-accelerated).
     private void showViewport() {
-        if (contentBitmap == null) return;
-        int y = (int) scrollY;
-        if (y + RH > contentHeight) y = Math.max(0, contentHeight - RH);
-        if (y < 0) y = 0;
-
         if (viewBitmap == null) {
             viewBitmap = Bitmap.createBitmap(RW, RH, Bitmap.Config.ARGB_8888);
             viewCanvas = new android.graphics.Canvas(viewBitmap);
         }
         viewCanvas.drawColor(0xFF101014);
-        android.graphics.Rect src = new android.graphics.Rect(0, y, RW, y + RH);
-        android.graphics.Rect dst = new android.graphics.Rect(0, 0, RW, RH);
-        viewCanvas.drawBitmap(contentBitmap, src, dst, null);
+
+        int first = (int) (scrollY / CARD_H);
+        int last = (int) ((scrollY + RH) / CARD_H) + 1;
+        if (first < 0) first = 0;
+        if (last >= items.size()) last = items.size() - 1;
+
+        for (int i = first; i <= last; i++) {
+            Item it = items.get(i);
+            if (it.cardBitmap == null) continue;
+            float cardY = i * CARD_H - scrollY;
+            int srcY = 0, srcH = it.cardBitmap.getHeight();
+            int dstY = (int) cardY;
+            int dstH = (int) CARD_H;
+            // Crop if the card overflows the viewport
+            if (dstY < 0) { srcY = -dstY; srcH = dstH + dstY; dstY = 0; }
+            if (dstY + dstH > RH) dstH = RH - dstY;
+            if (srcH <= 0 || dstH <= 0) continue;
+            android.graphics.Rect src = new android.graphics.Rect(0, srcY, RW, srcY + srcH);
+            android.graphics.Rect dst = new android.graphics.Rect(0, dstY, RW, dstY + dstH);
+            viewCanvas.drawBitmap(it.cardBitmap, src, dst, null);
+        }
+
+        // bottom loader
+        float contentH = items.size() * CARD_H;
+        if (scrollY + RH > contentH - RH * 0.3f) {
+            android.graphics.Paint p = new android.graphics.Paint();
+            p.setColor(Color.WHITE); p.setTextSize(22); p.setAntiAlias(true);
+            viewCanvas.drawText("loading more...", RW / 2 - 100, RH - 30, p);
+        }
+
         imageView.setImageBitmap(viewBitmap);
     }
 
-    private void drawFeed(SkiaCanvas c) {
-        c.clear(0xFF101014);
-        for (int i = 0; i < items.size(); i++) {
-            drawCard(c, items.get(i), i, i * CARD_H);
-        }
-    }
-
-    private void drawCard(SkiaCanvas c, Item it, int index, float y) {
+    private void drawCard(SkiaCanvas c, Item it, int index) {
         float margin = RW * 0.04f;
         float cardW = RW - margin * 2;
         float cardH = CARD_H;
 
-        c.fillRoundRect(margin, y + 6, cardW, cardH - 12, 12, 12, 0xFF1E1E24);
-        c.drawRoundRect(margin, y + 6, cardW, cardH - 12, 12, 12, 0xFF33333C, 2);
+        c.fillRoundRect(margin, 6, cardW, cardH - 12, 12, 12, 0xFF1E1E24);
+        c.drawRoundRect(margin, 6, cardW, cardH - 12, 12, 12, 0xFF33333C, 2);
 
         float imgX = margin + 8;
-        float imgY = y + 14;
+        float imgY = 14;
         float imgW = cardW - 16;
         float imgH = cardH - 12 - 40;
 
@@ -260,7 +273,7 @@ public class ImageGalleryActivity extends Activity {
         }
 
         c.drawText("Image #" + (index + 1) + "  ·  picsum.photos",
-                imgX, y + cardH - 18, 0xFFCCCCCC, 20);
+                imgX, cardH - 18, 0xFFCCCCCC, 20);
     }
 
     private void updateStatus() {
@@ -272,6 +285,8 @@ public class ImageGalleryActivity extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
-        if (contentCanvas != null) { contentCanvas.close(); contentCanvas = null; }
+        for (Item it : items) {
+            if (it.cardCanvas != null) { it.cardCanvas.close(); it.cardCanvas = null; }
+        }
     }
 }
