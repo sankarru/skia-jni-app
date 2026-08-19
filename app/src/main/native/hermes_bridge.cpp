@@ -68,6 +68,13 @@ static inline Function makeHost(JsCtx* ctx, const char* name,
 
 static inline double num(const Value* args, size_t i) { return args[i].getNumber(); }
 
+// Convert a JS number to a 32-bit color jint (0xAARRGGBB). A direct
+// `(jint)double` is undefined behavior when the double exceeds INT32_MAX,
+// so we route through uint32_t first for a well-defined bit reinterpretation.
+static inline jint colorJint(const Value* args, size_t i) {
+    return (jint)(uint32_t)(int64_t)num(args, i);
+}
+
 // ── Yoga enum mappers ────────────────────────────────────────────────
 static YGFlexDirection ygFlexDir(const std::string& s) {
     if (s == "row") return YGFlexDirectionRow;
@@ -121,12 +128,8 @@ Java_com_example_skiajni_JsCanvas_nCreate(JNIEnv* env, jclass, jint w, jint h) {
     rt.global().setProperty(rt, "clear",
         makeHost(ctx, "clear", [](JsCtx* c, Runtime&, const Value* a, size_t) {
             JNIEnv* e = c->env;
-            double rawColor = a[1].asNumber();
-            double rawHandle = a[0].asNumber();
-            jlong h = (jlong)(long long)rawHandle;
-            jint color = (jint)rawColor;
-            LOG("clear: rawHandle=%.0f rawColor=%.0f h=%lld color=%d(0x%x)",
-                rawHandle, rawColor, (long long)h, color, (unsigned)color);
+            jlong h = (jlong)(long long)a[0].asNumber();
+            jint color = (jint)(uint32_t)(int64_t)a[1].asNumber();
             e->CallStaticVoidMethod(sCanvasClass, sM.clear, h, color);
             return Value::undefined();
         }));
@@ -135,7 +138,7 @@ Java_com_example_skiajni_JsCanvas_nCreate(JNIEnv* env, jclass, jint w, jint h) {
             JNIEnv* e = c->env;
             jlong h = (jlong)a[0].asNumber();
             e->CallStaticVoidMethod(sCanvasClass, sM.fillRect, h,
-                (jfloat)num(a,1),(jfloat)num(a,2),(jfloat)num(a,3),(jfloat)num(a,4),(jint)num(a,5));
+                (jfloat)num(a,1),(jfloat)num(a,2),(jfloat)num(a,3),(jfloat)num(a,4),colorJint(a,5));
             return Value::undefined();
         }));
     rt.global().setProperty(rt, "fillCircle",
@@ -143,7 +146,7 @@ Java_com_example_skiajni_JsCanvas_nCreate(JNIEnv* env, jclass, jint w, jint h) {
             JNIEnv* e = c->env;
             jlong h = (jlong)a[0].asNumber();
             e->CallStaticVoidMethod(sCanvasClass, sM.fillCircle, h,
-                (jfloat)num(a,1),(jfloat)num(a,2),(jfloat)num(a,3),(jint)num(a,4));
+                (jfloat)num(a,1),(jfloat)num(a,2),(jfloat)num(a,3),colorJint(a,4));
             return Value::undefined();
         }));
     rt.global().setProperty(rt, "fillRoundRect",
@@ -152,7 +155,7 @@ Java_com_example_skiajni_JsCanvas_nCreate(JNIEnv* env, jclass, jint w, jint h) {
             jlong h = (jlong)a[0].asNumber();
             e->CallStaticVoidMethod(sCanvasClass, sM.fillRoundRect, h,
                 (jfloat)num(a,1),(jfloat)num(a,2),(jfloat)num(a,3),(jfloat)num(a,4),
-                (jfloat)num(a,5),(jfloat)num(a,6),(jint)num(a,7));
+                (jfloat)num(a,5),(jfloat)num(a,6),colorJint(a,7));
             return Value::undefined();
         }));
     rt.global().setProperty(rt, "drawRect",
@@ -161,7 +164,7 @@ Java_com_example_skiajni_JsCanvas_nCreate(JNIEnv* env, jclass, jint w, jint h) {
             jlong h = (jlong)a[0].asNumber();
             e->CallStaticVoidMethod(sCanvasClass, sM.drawRect, h,
                 (jfloat)num(a,1),(jfloat)num(a,2),(jfloat)num(a,3),(jfloat)num(a,4),
-                (jint)num(a,5),(jfloat)num(a,6));
+                colorJint(a,5),(jfloat)num(a,6));
             return Value::undefined();
         }));
     rt.global().setProperty(rt, "drawRoundRect",
@@ -170,7 +173,7 @@ Java_com_example_skiajni_JsCanvas_nCreate(JNIEnv* env, jclass, jint w, jint h) {
             jlong h = (jlong)a[0].asNumber();
             e->CallStaticVoidMethod(sCanvasClass, sM.drawRoundRect, h,
                 (jfloat)num(a,1),(jfloat)num(a,2),(jfloat)num(a,3),(jfloat)num(a,4),
-                (jfloat)num(a,5),(jfloat)num(a,6),(jint)num(a,7),(jfloat)num(a,8));
+                (jfloat)num(a,5),(jfloat)num(a,6),colorJint(a,7),(jfloat)num(a,8));
             return Value::undefined();
         }));
     rt.global().setProperty(rt, "drawCircle",
@@ -178,7 +181,7 @@ Java_com_example_skiajni_JsCanvas_nCreate(JNIEnv* env, jclass, jint w, jint h) {
             JNIEnv* e = c->env;
             jlong h = (jlong)a[0].asNumber();
             e->CallStaticVoidMethod(sCanvasClass, sM.drawCircle, h,
-                (jfloat)num(a,1),(jfloat)num(a,2),(jfloat)num(a,3),(jint)num(a,4),(jfloat)num(a,5));
+                (jfloat)num(a,1),(jfloat)num(a,2),(jfloat)num(a,3),colorJint(a,4),(jfloat)num(a,5));
             return Value::undefined();
         }));
     rt.global().setProperty(rt, "drawLine",
@@ -187,7 +190,7 @@ Java_com_example_skiajni_JsCanvas_nCreate(JNIEnv* env, jclass, jint w, jint h) {
             jlong h = (jlong)a[0].asNumber();
             e->CallStaticVoidMethod(sCanvasClass, sM.drawLine, h,
                 (jfloat)num(a,1),(jfloat)num(a,2),(jfloat)num(a,3),(jfloat)num(a,4),
-                (jint)num(a,5),(jfloat)num(a,6));
+                colorJint(a,5),(jfloat)num(a,6));
             return Value::undefined();
         }));
     rt.global().setProperty(rt, "drawText",
@@ -197,7 +200,7 @@ Java_com_example_skiajni_JsCanvas_nCreate(JNIEnv* env, jclass, jint w, jint h) {
             std::string text = a[1].getString(rt).utf8(rt);
             jstring jt = e->NewStringUTF(text.c_str());
             e->CallStaticVoidMethod(sCanvasClass, sM.drawText, h, jt,
-                (jfloat)num(a,2),(jfloat)num(a,3),(jint)num(a,4),(jfloat)num(a,5));
+                (jfloat)num(a,2),(jfloat)num(a,3),colorJint(a,4),(jfloat)num(a,5));
             e->DeleteLocalRef(jt);
             return Value::undefined();
         }));

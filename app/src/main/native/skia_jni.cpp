@@ -109,9 +109,7 @@ static sk_sp<SkTypeface> defaultTypeface() {
 
 static SkCanvas* getCanvas(jlong h) {
     auto nc = reinterpret_cast<NativeCanvas*>(h);
-    if (nc && nc->surface) return nc->surface->getCanvas();
-    LOG("getCanvas: INVALID handle=%lld", (long long)h);
-    return nullptr;
+    return nc && nc->surface ? nc->surface->getCanvas() : nullptr;
 }
 
 // ====================================================================

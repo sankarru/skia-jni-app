@@ -12,7 +12,6 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 
 /** Good Vibes — a wellness dashboard rendered via Hermes + Skia + Yoga. */
 public class ReactDemoActivity extends Activity {
@@ -77,7 +76,7 @@ public class ReactDemoActivity extends Activity {
             sw[i + 3] = px[i + 3];
         }
         Bitmap bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
-        bmp.copyPixelsFromBuffer(ByteBuffer.wrap(sw).order(ByteOrder.LITTLE_ENDIAN));
+        bmp.copyPixelsFromBuffer(ByteBuffer.wrap(sw));
         return bmp;
     }
 
@@ -96,11 +95,89 @@ public class ReactDemoActivity extends Activity {
 
                 // ── Scene definition ──────────────────────────────
                 String jsCode =
-                    "clear(_handle, 0xFF000000);" +
+                    "var root = render(_handle," +
+                    "  View({ style: { background: 0xFFF8FAFC, padding: 0, gap: 0 } }," +
+                    "    View({ style: { background: 0xFF6D28D9, padding: 20, paddingTop: 16, paddingBottom: 24 } }," +
+                    "      Text({ style: { fontSize: 14, color: 0xFFC4B5FD } }, 'Good Morning')," +
+                    "      Text({ style: { fontSize: 26, fontWeight: 'bold', color: 0xFFFFFFFF, marginTop: 4 } }, 'Alex')," +
+                    "      View({ style: { flexDirection: 'row', gap: 8, marginTop: 12, alignItems: 'center' } }," +
+                    "        Badge('MINDFUL', 0xFFEDE9FE, 0xFF7C3AED)," +
+                    "        Text({ style: { fontSize: 12, color: 0xFFC4B5FD } }, 'Aug 19, 2026')" +
+                    "      )" +
+                    "    )," +
+                    "    View({ style: { flexDirection: 'row', gap: 10, padding: 16 } }," +
+                    "      StatPill('7,243', 'Steps', 0xFF7C3AED)," +
+                    "      StatPill('85', 'Mood', 0xFFF59E0B)," +
+                    "      StatPill('12', 'Day Streak', 0xFF10B981)" +
+                    "    )," +
+                    "    View({ style: { margin: 16, marginTop: 4, padding: 18, background: 0xFFFFFFFF," +
+                    "        borderRadius: 14, borderWidth: 1, borderColor: 0xFFF1F5F9 } }," +
+                    "      View({ style: { flexDirection: 'row', gap: 8, alignItems: 'center' } }," +
+                    "        Badge('QUOTE', 0xFFFDF4FF, 0xFFA855F7)," +
+                    "        Text({ style: { fontSize: 11, color: 0xFF94A3B8 } }, 'Daily')" +
+                    "      )," +
+                    "      Text({ style: { fontSize: 16, color: 0xFF334155, marginTop: 12, fontWeight: 'bold' } }," +
+                    "        'The only way to do great work is to love what you do.')," +
+                    "      Text({ style: { fontSize: 13, color: 0xFF94A3B8, marginTop: 6 } }, 'Steve Jobs')" +
+                    "    )," +
+                    "    View({ style: { padding: 16, paddingTop: 4 } }," +
+                    "      SectionTitle('DAILY HABITS')," +
+                    "      View({ style: { gap: 8, marginTop: 10 } }," +
+                    "        HabitItem('yoga', 'Morning Yoga', true, 0xFF10B981)," +
+                    "        HabitItem('water', 'Hydration Goal', true, 0xFF3B82F6)," +
+                    "        HabitItem('book', 'Read 20 Pages', false, 0xFFF59E0B)," +
+                    "        HabitItem('walk', 'Evening Walk', false, 0xFFF43F5E)," +
+                    "        HabitItem('sleep', 'Sleep by 10 PM', false, 0xFF8B5CF6)" +
+                    "      )" +
+                    "    )," +
+                    "    View({ style: { margin: 16, marginTop: 4, padding: 18, background: 0xFFFFFFFF," +
+                    "        borderRadius: 14, borderWidth: 1, borderColor: 0xFFF1F5F9 } }," +
+                    "      SectionTitle('WEEKLY PROGRESS')," +
+                    "      View({ style: { gap: 10, marginTop: 10 } }," +
+                    "        View({ style: { gap: 4 } }," +
+                    "          View({ style: { flexDirection: 'row', justifyContent: 'space-between' } }," +
+                    "            Text({ style: { fontSize: 13, color: 0xFF475569 } }, 'Meditation')," +
+                    "            Text({ style: { fontSize: 13, fontWeight: 'bold', color: 0xFF7C3AED } }, '85%')" +
+                    "          )," +
+                    "          ProgressBar(85, 100, 0xFF7C3AED, 0xFFEDE9FE, 8)" +
+                    "        )," +
+                    "        View({ style: { gap: 4 } }," +
+                    "          View({ style: { flexDirection: 'row', justifyContent: 'space-between' } }," +
+                    "            Text({ style: { fontSize: 13, color: 0xFF475569 } }, 'Exercise')," +
+                    "            Text({ style: { fontSize: 13, fontWeight: 'bold', color: 0xFF10B981 } }, '72%')" +
+                    "          )," +
+                    "          ProgressBar(72, 100, 0xFF10B981, 0xFFDCFCE7, 8)" +
+                    "        )," +
+                    "        View({ style: { gap: 4 } }," +
+                    "          View({ style: { flexDirection: 'row', justifyContent: 'space-between' } }," +
+                    "            Text({ style: { fontSize: 13, color: 0xFF475569 } }, 'Nutrition')," +
+                    "            Text({ style: { fontSize: 13, fontWeight: 'bold', color: 0xFFF59E0B } }, '60%')" +
+                    "          )," +
+                    "          ProgressBar(60, 100, 0xFFF59E0B, 0xFFFEF3C7, 8)" +
+                    "        )" +
+                    "      )" +
+                    "    )," +
+                    "    View({ style: { margin: 16, marginTop: 4, padding: 18, background: 0xFF7C3AED," +
+                    "        borderRadius: 14, alignItems: 'center' } }," +
+                    "      Text({ style: { fontSize: 14, color: 0xFFEDE9FE } }, 'TODAY\\'S AFFIRMATION')," +
+                    "      Text({ style: { fontSize: 17, fontWeight: 'bold', color: 0xFFFFFFFF," +
+                    "        marginTop: 8, textAlign: 'center' } }," +
+                    "        'I am worthy of love, peace, and joy.')" +
+                    "    )," +
+                    "    View({ style: { padding: 16, paddingTop: 4 } }," +
+                    "      Button({ style: { background: 0xFF7C3AED, color: 0xFFFFFFFF," +
+                    "        fontSize: 16, fontWeight: 'bold', borderRadius: 12, padding: 16," +
+                    "        borderWidth: 0, alignItems: 'center', justifyContent: 'center' } }," +
+                    "        'Start Evening Routine')" +
+                    "    )," +
+                    "    Text({ style: { fontSize: 11, color: 0xFF94A3B8," +
+                    "      textAlign: 'center', marginTop: 4, marginBottom: 16 } }," +
+                    "      'Good Vibes  |  Yoga + Hermes + Skia')" +
+                    "  )" +
+                    ", " + W + ", " + contentH + ", " + topInset + "); " +
                     "'ok'";
 
-js.setCanvas(canvas);
-                android.util.Log.d("SkiaApp", "canvas.handle=" + canvas.getNativeHandle());
+                js.setCanvas(canvas);
                 String result = js.eval(jsCode);
 
                 long dt = (System.nanoTime() - t0) / 1_000_000;
