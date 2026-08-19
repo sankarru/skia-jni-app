@@ -474,8 +474,9 @@ Java_com_example_skiajni_SkiaCanvas_nGetPixels(JNIEnv* env, jclass, jlong h) {
     auto nc = reinterpret_cast<NativeCanvas*>(h);
     if (!nc || !nc->surface) return nullptr;
 
-    auto img = nc->surface->makeImageSnapshot();
-    if (!img) return nullptr;
+    // Read the raster surface pixels directly.
+    SkPixmap src;
+    if (!nc->surface->peekPixels(&src)) return nullptr;
 
     SkImageInfo info = SkImageInfo::Make(nc->width, nc->height,
                                          kRGBA_8888_SkColorType, kPremul_SkAlphaType);
@@ -484,8 +485,7 @@ Java_com_example_skiajni_SkiaCanvas_nGetPixels(JNIEnv* env, jclass, jlong h) {
     if (!out) return nullptr;
 
     jbyte* dst = env->GetByteArrayElements(out, nullptr);
-    SkPixmap pm(info, dst, info.minRowBytes());
-    bool ok = img->readPixels(nullptr, pm, 0, 0);
+    bool ok = src.readPixels(info, dst, info.minRowBytes(), 0, 0);
     env->ReleaseByteArrayElements(out, dst, 0);
     return ok ? out : nullptr;
 }

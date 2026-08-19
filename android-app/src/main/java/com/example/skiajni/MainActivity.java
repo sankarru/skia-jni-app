@@ -207,16 +207,26 @@ public class MainActivity extends Activity {
             drawUi(canvas);
             byte[] px = canvas.getPixels();
             long dt = (System.nanoTime() - t0) / 1_000_000;
+            android.util.Log.d("SkiaJNI", "render px=" + (px==null?"null":px.length)
+                    + " W=" + W + " H=" + H + " dt=" + dt);
 
             if (px != null) {
                 if (bitmap != null) bitmap.recycle();
                 bitmap = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888);
                 bitmap.copyPixelsFromBuffer(ByteBuffer.wrap(px));
                 imageView.setImageBitmap(bitmap);
+                // Save Skia render for offline inspection (bypasses emulator compositing)
+                try {
+                    canvas.saveToFile(getFilesDir() + "/skia_debug.png");
+                    android.util.Log.d("SkiaJNI", "saved png to " + getFilesDir() + "/skia_debug.png");
+                } catch (Throwable e) {
+                    android.util.Log.d("SkiaJNI", "save failed: " + e.getMessage());
+                }
             }
             status.setText("Skia UI  ·  " + W + "x" + H + "  ·  " + dt + " ms"
                     + "  ·  " + (darkMode ? "dark" : "light"));
         } catch (Throwable t) {
+            android.util.Log.d("SkiaJNI", "render ERROR: " + t, t);
             status.setText("Error: " + t.getMessage());
         }
     }
@@ -227,6 +237,8 @@ public class MainActivity extends Activity {
         int cardBg = darkMode ? 0xFF1E1E1E : 0xFFFFFFFF;
         int labelCol = darkMode ? 0xFFFFFFFF : 0xFF37474F;
         c.clear(bg);
+        android.util.Log.d("SkiaJNI", "drawUi cleared bg=" + Integer.toHexString(bg)
+                + " darkMode=" + darkMode + " W=" + W + " H=" + H);
 
         float margin = W * 0.06f;
         float cardW = W - margin * 2;
