@@ -27,6 +27,8 @@
 #include "include/gpu/ganesh/vk/GrVkTypes.h"
 #include "include/gpu/vk/VulkanBackendContext.h"
 #include "include/gpu/vk/VulkanMemoryAllocator.h"
+#include "include/gpu/vk/VulkanMutableTextureState.h"
+#include "include/gpu/GpuTypes.h"
 
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "SkiaVk", __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "SkiaVk", __VA_ARGS__)
@@ -360,14 +362,20 @@ Java_com_example_skiajni_VulkanSurfaceView_nRender(JNIEnv*, jobject, jlong h) {
     canvas->drawCircle(r->extent.width * 0.8f, r->extent.height * 0.25f,
                        r->extent.height * 0.08f, p);
 
-    // Flush + submit Skia's recorded GPU work.
-    r->grContext->flushAndSubmit(r->skSurfaces[imgIndex].get());
+    // Flush Skia's recorded GPU work, transitioning the image to PRESENT_SRC layout.
+    GrFlushInfo flushInfo;
+    auto presentState = skgpu::MutableTextureStates::MakeVulkan(
+            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_QUEUE_FAMILY_IGNORED);
+    r->grContext->flush(r->skSurfaces[imgIndex].get(), flushInfo, &presentState);
     r->grContext->submit();
 
     // Present.
     VkPresentInfoKHR pi{}; pi.sType=VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     pi.swapchainCount=1; pi.pSwapchains=&r->swapchain; pi.pImageIndices=&imgIndex;
-    r->pQueuePresent(r->queue, &pi);
+    VkResult pres = r->pQueuePresent(r->queue, &pi);
+    if (pres != VK_SUCCESS) {
+        LOGE("vkQueuePresentKHR failed: %d", (int)pres);
+    }
 }
 
 } // extern "C"

@@ -58,12 +58,21 @@ public class VulkanSurfaceView extends SurfaceView implements SurfaceHolder.Call
         if (rendering) return;
         rendering = true;
         renderThread = new Thread(() -> {
+            long last = System.nanoTime();
             while (rendering && nativeHandle != 0) {
                 try {
                     nRender(nativeHandle);
                 } catch (Throwable t) {
                     android.util.Log.d("SkiaVk", "render error: " + t.getMessage());
                 }
+                // Pace to ~60fps (vsync)
+                long now = System.nanoTime();
+                long frameTime = 16_666_667L; // 60fps
+                long sleep = frameTime - (now - last);
+                if (sleep > 0) {
+                    try { Thread.sleep(sleep / 1_000_000L); } catch (InterruptedException ignored) {}
+                }
+                last = System.nanoTime();
             }
         }, "skia-vulkan-render");
         renderThread.start();
