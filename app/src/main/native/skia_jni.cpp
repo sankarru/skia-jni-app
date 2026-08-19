@@ -78,16 +78,38 @@ static std::once_flag gFontInit;
 
 static void initFonts() {
     gFontMgr = SkFontMgr_New_AndroidNDK(true, SkFontScanner_Make_FreeType());
+
+    // Try several strategies to obtain a usable default typeface.
+    const char* candidates[] = {
+        "/system/fonts/Roboto-Regular.ttf",
+        "/system/fonts/Roboto-Regular.ttf",
+        "/system/fonts/DroidSans.ttf",
+        "/system/fonts/NotoSans-Regular.ttf",
+        "/system/fonts/NotoSansCJK-Regular.ttc",
+        "/system/fonts/AndroidClock.ttf",
+        "/product/fonts/Roboto-Regular.ttf",
+    };
+
     if (gFontMgr) {
         gTypeface = gFontMgr->matchFamilyStyle(nullptr, SkFontStyle());
         if (gTypeface) {
             SkString fam;
             gTypeface->getFamilyName(&fam);
-            __android_log_print(ANDROID_LOG_DEBUG, "SkiaJNI", "font mgr=ok typeface=%p family=%s",
-                                (void*)gTypeface.get(), fam.c_str());
-        } else {
-            __android_log_print(ANDROID_LOG_DEBUG, "SkiaJNI", "matchFamilyStyle returned NULL");
+            __android_log_print(ANDROID_LOG_DEBUG, "SkiaJNI", "default font: %s", fam.c_str());
+            return;
         }
+        // Try loading a known system font file directly.
+        for (const char* path : candidates) {
+            auto tf = gFontMgr->makeFromFile(path, 0);
+            if (tf) {
+                gTypeface = std::move(tf);
+                SkString fam;
+                gTypeface->getFamilyName(&fam);
+                __android_log_print(ANDROID_LOG_DEBUG, "SkiaJNI", "font from file %s (%s)", path, fam.c_str());
+                return;
+            }
+        }
+        __android_log_print(ANDROID_LOG_DEBUG, "SkiaJNI", "no usable system font found");
     } else {
         __android_log_print(ANDROID_LOG_DEBUG, "SkiaJNI", "SkFontMgr_New_AndroidNDK returned NULL");
     }
