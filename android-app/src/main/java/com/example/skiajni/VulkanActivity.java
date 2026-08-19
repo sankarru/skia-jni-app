@@ -5,8 +5,9 @@ import android.os.Bundle;
 import android.view.WindowManager;
 
 /**
- * Fullscreen activity that renders via Skia's Vulkan backend.
- * Uses a SurfaceView whose native window is the Vulkan swapchain target.
+ * Fullscreen activity that renders via Skia's Vulkan GPU backend.
+ * Renders offscreen on the GPU and displays via ImageView (reliable on
+ * emulators where direct swapchain-present can deadlock).
  */
 public class VulkanActivity extends Activity {
 
@@ -19,8 +20,11 @@ public class VulkanActivity extends Activity {
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
+        android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
         view = new VulkanSurfaceView(this);
+        view.init(dm.widthPixels, dm.heightPixels);
         setContentView(view);
+        view.startRendering();
     }
 
     @Override
@@ -32,8 +36,12 @@ public class VulkanActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (view != null && view.getHolder().getSurface().isValid()) {
-            view.startRendering();
-        }
+        if (view != null) view.startRendering();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (view != null) view.stopRendering();
     }
 }

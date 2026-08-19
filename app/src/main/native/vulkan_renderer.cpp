@@ -310,72 +310,46 @@ Java_com_example_skiajni_VulkanSurfaceView_nDestroy(JNIEnv*, jobject, jlong h) {
     delete r;
 }
 
-// Render one frame: acquire swapchain image, wrap in SkSurface, draw, present.
-JNIEXPORT void JNICALL
-Java_com_example_skiajni_VulkanSurfaceView_nRender(JNIEnv*, jobject, jlong h) {
+// Render a frame via the Vulkan GPU backend into an offscreen surface,
+// read the pixels back to CPU, and return them as an RGBA byte array.
+// (Reliable on emulators where swapchain-present can deadlock.)
+JNIEXPORT jbyteArray JNICALL
+Java_com_example_skiajni_VulkanSurfaceView_nRender(JNIEnv* env, jobject, jlong h) {
     auto* r = reinterpret_cast<VulkanRenderer*>(h);
-    if (!r || !r->grContext) return;
+    if (!r || !r->grContext) return nullptr;
 
-    uint32_t imgIndex = 0;
-    VkResult res = r->pAcquireNextImage(r->device, r->swapchain, UINT64_MAX,
-                                        VK_NULL_HANDLE, VK_NULL_HANDLE, &imgIndex);
-    if (res != VK_SUCCESS && res != VK_SUBOPTIMAL_KHR) return;
+    // Offscreen Vulkan render target.
+    SkImageInfo info = SkImageInfo::Make(r->extent.width, r->extent.height,
+                                         kRGBA_8888_SkColorType, kPremul_SkAlphaType);
+    auto surf = SkSurfaces::RenderTarget(r->grContext.get(), skgpu::Budgeted::kNo, info);
+    if (!surf) { LOGE("offscreen RenderTarget failed"); return nullptr; }
 
-    // Ensure SkSurface for this swapchain image exists.
-    if (r->skSurfaces.size() <= imgIndex || !r->skSurfaces[imgIndex]) {
-        GrVkImageInfo vkInfo{};
-        vkInfo.fImage = r->images[imgIndex];
-        vkInfo.fImageTiling = VK_IMAGE_TILING_OPTIMAL;
-        vkInfo.fImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        vkInfo.fFormat = r->format;
-        vkInfo.fImageUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-        vkInfo.fSampleCount = 1;
-        vkInfo.fLevelCount = 1;
-        vkInfo.fCurrentQueueFamily = r->queueFamily;
-        auto backendRT = GrBackendRenderTargets::MakeVk(r->extent.width, r->extent.height, vkInfo);
-        auto surf = SkSurfaces::WrapBackendRenderTarget(
-            r->grContext.get(), backendRT, kTopLeft_GrSurfaceOrigin,
-            kRGBA_8888_SkColorType, nullptr, nullptr, nullptr, nullptr);
-        if (surf) {
-            if (r->skSurfaces.size() <= imgIndex) r->skSurfaces.resize(imgIndex + 1);
-            r->skSurfaces[imgIndex] = std::move(surf);
-        }
-    }
-    if (imgIndex >= r->skSurfaces.size() || !r->skSurfaces[imgIndex]) return;
-
-    // Basic Skia GPU draw: clear + a shape + text to prove Vulkan rendering.
-    auto* canvas = r->skSurfaces[imgIndex]->getCanvas();
+    auto* canvas = surf->getCanvas();
     canvas->clear(SkColorSetARGB(255, 18, 18, 18));
 
     SkPaint p;
-    p.setColor(SK_ColorCYAN);
-    p.setStyle(SkPaint::kFill_Style);
-    p.setAntiAlias(true);
+    p.setColor(SK_ColorCYAN); p.setStyle(SkPaint::kFill_Style); p.setAntiAlias(true);
     canvas->drawCircle(r->extent.width * 0.5f, r->extent.height * 0.4f,
                        r->extent.height * 0.2f, p);
-
     p.setColor(SK_ColorMAGENTA);
     canvas->drawRect(SkRect::MakeXYWH(r->extent.width * 0.1f, r->extent.height * 0.7f,
                                       r->extent.width * 0.8f, r->extent.height * 0.1f), p);
-
     p.setColor(SK_ColorYELLOW);
     canvas->drawCircle(r->extent.width * 0.8f, r->extent.height * 0.25f,
                        r->extent.height * 0.08f, p);
 
-    // Flush Skia's recorded GPU work, transitioning the image to PRESENT_SRC layout.
-    GrFlushInfo flushInfo;
-    auto presentState = skgpu::MutableTextureStates::MakeVulkan(
-            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_QUEUE_FAMILY_IGNORED);
-    r->grContext->flush(r->skSurfaces[imgIndex].get(), flushInfo, &presentState);
+    r->grContext->flushAndSubmit(surf.get());
     r->grContext->submit();
 
-    // Present.
-    VkPresentInfoKHR pi{}; pi.sType=VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    pi.swapchainCount=1; pi.pSwapchains=&r->swapchain; pi.pImageIndices=&imgIndex;
-    VkResult pres = r->pQueuePresent(r->queue, &pi);
-    if (pres != VK_SUCCESS) {
-        LOGE("vkQueuePresentKHR failed: %d", (int)pres);
-    }
+    // Read back pixels (GPU -> CPU).
+    jsize size = static_cast<jsize>(info.computeByteSize(info.minRowBytes()));
+    jbyteArray out = env->NewByteArray(size);
+    if (!out) return nullptr;
+    jbyte* dst = env->GetByteArrayElements(out, nullptr);
+    SkPixmap pm(info, dst, info.minRowBytes());
+    bool ok = surf->readPixels(pm, 0, 0);
+    env->ReleaseByteArrayElements(out, dst, 0);
+    return ok ? out : nullptr;
 }
 
 } // extern "C"

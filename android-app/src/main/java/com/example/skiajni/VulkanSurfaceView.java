@@ -1,22 +1,28 @@
 package com.example.skiajni;
 
 import android.content.Context;
-import android.util.AttributeSet;
-import android.view.SurfaceHolder;
-import android.view.SurfaceView;
+import android.graphics.Bitmap;
+import android.view.Surface;
+import android.view.View;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
+
+import java.nio.ByteBuffer;
 
 /**
- * A SurfaceView that renders via Skia's Vulkan backend.
- * Manages the Vulkan swapchain native to an ANativeWindow and renders
- * each frame on the GPU, presenting to the screen.
+ * Renders via Skia's Vulkan GPU backend into an offscreen surface,
+ * reads pixels back to CPU, and displays them. Reliable on emulators
+ * where direct swapchain-present can deadlock.
  */
-public class VulkanSurfaceView extends SurfaceView implements SurfaceHolder.Callback {
+public class VulkanSurfaceView extends FrameLayout {
 
     private long nativeHandle = 0;
     private boolean rendering = false;
     private Thread renderThread;
     private int width = 1080;
     private int height = 1920;
+    private ImageView imageView;
+    private Bitmap bitmap;
 
     static {
         System.loadLibrary("skia_jni");
@@ -24,50 +30,43 @@ public class VulkanSurfaceView extends SurfaceView implements SurfaceHolder.Call
 
     public VulkanSurfaceView(Context context) {
         super(context);
-        getHolder().addCallback(this);
+        setBackgroundColor(0xFF000000);
+        imageView = new ImageView(context);
+        imageView.setScaleType(ImageView.ScaleType.FIT_XY);
+        addView(imageView, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT));
     }
 
-    @Override
-    public void surfaceCreated(SurfaceHolder holder) {
-        // size set in surfaceChanged
-    }
-
-    @Override
-    public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
+    public void init(int w, int h) {
         width = w;
         height = h;
         if (nativeHandle == 0) {
-            nativeHandle = nCreate(holder.getSurface(), w, h);
-            android.util.Log.d("SkiaVk", "surfaceCreated native=" + nativeHandle + " " + w + "x" + h);
-        }
-        if (nativeHandle != 0) {
-            startRendering();
-        }
-    }
-
-    @Override
-    public void surfaceDestroyed(SurfaceHolder holder) {
-        stopRendering();
-        if (nativeHandle != 0) {
-            nDestroy(nativeHandle);
-            nativeHandle = 0;
+            nativeHandle = nCreate(w, h);
+            android.util.Log.d("SkiaVk", "init native=" + nativeHandle + " " + w + "x" + h);
         }
     }
 
     public void startRendering() {
-        if (rendering) return;
+        if (rendering || nativeHandle == 0) return;
         rendering = true;
         renderThread = new Thread(() -> {
             long last = System.nanoTime();
             while (rendering && nativeHandle != 0) {
                 try {
-                    nRender(nativeHandle);
+                    byte[] px = nRender(nativeHandle);
+                    if (px != null && width > 0 && height > 0) {
+                        if (bitmap == null) {
+                            bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+                        }
+                        bitmap.copyPixelsFromBuffer(ByteBuffer.wrap(px));
+                        post(() -> imageView.setImageBitmap(bitmap));
+                    }
                 } catch (Throwable t) {
                     android.util.Log.d("SkiaVk", "render error: " + t.getMessage());
                 }
-                // Pace to ~60fps (vsync)
                 long now = System.nanoTime();
-                long frameTime = 16_666_667L; // 60fps
+                long frameTime = 16_666_667L;
                 long sleep = frameTime - (now - last);
                 if (sleep > 0) {
                     try { Thread.sleep(sleep / 1_000_000L); } catch (InterruptedException ignored) {}
@@ -84,10 +83,14 @@ public class VulkanSurfaceView extends SurfaceView implements SurfaceHolder.Call
             try { renderThread.join(200); } catch (InterruptedException ignored) {}
             renderThread = null;
         }
+        if (nativeHandle != 0) {
+            nDestroy(nativeHandle);
+            nativeHandle = 0;
+        }
     }
 
     // ── native methods ──────────────────────────────────────────────
-    private static native long nCreate(android.view.Surface surface, int width, int height);
-    private static native void nRender(long handle);
+    private static native long nCreate(int width, int height);
+    private static native byte[] nRender(long handle);
     private static native void nDestroy(long handle);
 }
