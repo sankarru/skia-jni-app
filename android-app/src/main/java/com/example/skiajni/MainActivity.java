@@ -212,8 +212,7 @@ public class MainActivity extends Activity {
 
             if (px != null) {
                 if (bitmap != null) bitmap.recycle();
-                bitmap = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888);
-                bitmap.copyPixelsFromBuffer(ByteBuffer.wrap(px));
+                bitmap = Pixels.toBitmap(W, H, px);
                 imageView.setImageBitmap(bitmap);
             }
             status.setText("Skia UI  ·  " + W + "x" + H + "  ·  " + dt + " ms"

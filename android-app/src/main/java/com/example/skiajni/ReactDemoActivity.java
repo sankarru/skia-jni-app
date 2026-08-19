@@ -68,16 +68,7 @@ public class ReactDemoActivity extends Activity {
     /** Convert Skia pixel bytes (RGBA) into an Android ARGB_8888 bitmap.
      *  Swaps the red and blue channels so colors render correctly. */
     private static Bitmap toBitmap(int w, int h, byte[] px) {
-        byte[] sw = new byte[px.length];
-        for (int i = 0; i < px.length; i += 4) {
-            sw[i]     = px[i + 2];
-            sw[i + 1] = px[i + 1];
-            sw[i + 2] = px[i];
-            sw[i + 3] = px[i + 3];
-        }
-        Bitmap bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
-        bmp.copyPixelsFromBuffer(ByteBuffer.wrap(sw));
-        return bmp;
+        return Pixels.toBitmap(w, h, px);
     }
 
     private void render(int W, int H, int topInset, int bottomInset,
