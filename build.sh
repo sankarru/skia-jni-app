@@ -97,6 +97,7 @@ echo ">>> Skia built: $(ls -lh "$SKIA_OUT/libskia.a" 2>/dev/null || echo 'not fo
 echo ">>> Building libskia_jni.so..."
 BUILD_DIR="$SCRIPT_DIR/build"
 OUT_DIR="$SCRIPT_DIR/libs"
+JNI_SO="$OUT_DIR/libskia_jni.so"
 mkdir -p "$BUILD_DIR" "$OUT_DIR"
 
 VK_INC="${SKIA_DIR}/include/third_party/vulkan"
