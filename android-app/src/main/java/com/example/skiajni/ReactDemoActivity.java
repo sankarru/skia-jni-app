@@ -84,22 +84,24 @@ public class ReactDemoActivity extends Activity {
 
                 String appJs =
                     "var root = render(_handle, " +
-                    "  View({ style: { background: 0xFF0F172A, flexGrow: 1 } }," +
+                    "  View({ style: { background: 0xFFF1F5F9, flexGrow: 1, padding: 0 } }," +
                     "    Header('React Native on Skia', 'Yoga flexbox layout, drawn via JNI')," +
-                    "    Text({ style: { fontSize: 12, color: 0xFF64748B, marginTop: 20," +
-                    "      marginLeft: 16 } }, 'PERFORMANCE')," +
-                    "    View({ style: { flexDirection: 'row', gap: 12, padding: 16 } }," +
-                    "      StatCard('99%', 'CPU', 'Software raster')," +
-                    "      StatCard('60fps', 'FPS', 'Vsync driven')," +
-                    "      StatCard('1.4MB', 'APK', 'No WebView')" +
-                    "    )," +
-                    "    Text({ style: { fontSize: 12, color: 0xFF64748B, marginTop: 20," +
-                    "      marginLeft: 16 } }, 'ACTIONS')," +
-                    "    Button({ style: { background: 0xFF2563EB, color: 0xFFFFFFFF," +
-                    "      fontSize: 15, fontWeight: 'bold', borderRadius: 8, padding: 14," +
-                    "      margin: 16, borderWidth: 1, borderColor: 0xFF1976D2 } }," +
-                    "      'Render via Hermes + Yoga')," +
-                    "    Footer('Yoga flexbox · Hermes JS · Skia draw · no HTML/CSS')" +
+                    "    View({ style: { padding: 16 } }," +
+                    "      Text({ style: { fontSize: 13, fontWeight: 'bold', color: 0xFF334155," +
+                    "        marginTop: 8, marginBottom: 8 } }, 'PERFORMANCE')," +
+                    "      View({ style: { flexDirection: 'row', gap: 12 } }," +
+                    "        StatCard('99%', 'CPU', 'Software raster')," +
+                    "        StatCard('60fps', 'FPS', 'Vsync driven')," +
+                    "        StatCard('1.4MB', 'APK', 'No WebView')" +
+                    "      )," +
+                    "      Text({ style: { fontSize: 13, fontWeight: 'bold', color: 0xFF334155," +
+                    "        marginTop: 24, marginBottom: 8 } }, 'ACTIONS')," +
+                    "      Button({ style: { background: 0xFF2563EB, color: 0xFFFFFFFF," +
+                    "        fontSize: 16, fontWeight: 'bold', borderRadius: 10, padding: 16," +
+                    "        marginTop: 4, borderWidth: 0 } }," +
+                    "        'Render via Hermes + Yoga')," +
+                    "      Footer('Yoga flexbox · Hermes JS · Skia draw · no HTML/CSS')" +
+                    "    )" +
                     "  )" +
                     ", " + W + ", " + contentH + ", " + topInset + "); " +
                     "'ok'";

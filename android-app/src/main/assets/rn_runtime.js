@@ -18,9 +18,9 @@ var DEFAULT_TEXT = {
 };
 
 var DEFAULT_BUTTON = {
-  background: 0xFF2196F3, color: 0xFFFFFFFF, fontSize: 15,
-  fontWeight: "bold", borderRadius: 8, padding: 12, margin: 0,
-  borderWidth: 1, borderColor: 0xFF1976D2, textAlign: "center",
+  background: 0xFF2563EB, color: 0xFFFFFFFF, fontSize: 16,
+  fontWeight: "bold", borderRadius: 10, padding: 16, margin: 0,
+  borderWidth: 0, borderColor: 0, textAlign: "center",
   alignItems: "center", justifyContent: "center"
 };
 
@@ -65,31 +65,31 @@ function Button(props, ...children) {
 // ── Convenience components ────────────────────────────────────────────
 
 function Header(title, subtitle) {
-  return View({ style: { padding: 24, background: 0xFF1E293B } },
-    Text({ style: { fontSize: 32, fontWeight: "bold", color: 0xFFF8FAFC } }, title),
+  return View({ style: { padding: 24, paddingTop: 16, paddingBottom: 20, background: 0xFF1E40AF } },
+    Text({ style: { fontSize: 28, fontWeight: "bold", color: 0xFFFFFFFF } }, title),
     subtitle
-      ? Text({ style: { fontSize: 14, color: 0xFF94A3B8, marginTop: 6 } }, subtitle)
+      ? Text({ style: { fontSize: 14, color: 0xFFBFDBFE, marginTop: 6 } }, subtitle)
       : null
   );
 }
 
 function StatCard(value, label, desc) {
-  return View({ style: { padding: 16, background: 0xFF1E293B, borderRadius: 12,
-      borderWidth: 1, borderColor: 0xFF334155, width: 160, flexGrow: 1 } },
-    Text({ style: { fontSize: 26, fontWeight: "bold", color: 0xFF4ADE80 } }, value),
-    Text({ style: { fontSize: 12, color: 0xFF64748B } }, label),
+  return View({ style: { padding: 16, background: 0xFFFFFFFF, borderRadius: 12,
+      borderWidth: 1, borderColor: 0xFFE2E8F0, flexGrow: 1 } },
+    Text({ style: { fontSize: 24, fontWeight: "bold", color: 0xFF16A34A } }, value),
+    Text({ style: { fontSize: 12, color: 0xFF64748B, marginTop: 4 } }, label),
     desc
-      ? Text({ style: { fontSize: 13, color: 0xFFCBD5E1, marginTop: 6 } }, desc)
+      ? Text({ style: { fontSize: 12, color: 0xFF94A3B8, marginTop: 4 } }, desc)
       : null
   );
 }
 
 function Card(title, body) {
-  return View({ style: { padding: 16, background: 0xFF1E293B, borderRadius: 12,
-      borderWidth: 1, borderColor: 0xFF334155, width: 160 } },
-    Text({ style: { fontSize: 16, fontWeight: "bold", color: 0xFF38BDF8 } }, title),
+  return View({ style: { padding: 16, background: 0xFFFFFFFF, borderRadius: 12,
+      borderWidth: 1, borderColor: 0xFFE2E8F0, flexGrow: 1 } },
+    Text({ style: { fontSize: 16, fontWeight: "bold", color: 0xFF1E40AF } }, title),
     body
-      ? Text({ style: { fontSize: 13, color: 0xFFCBD5E1, marginTop: 4 } }, body)
+      ? Text({ style: { fontSize: 13, color: 0xFF475569, marginTop: 4 } }, body)
       : null
   );
 }
@@ -247,7 +247,9 @@ function render(handle, root, vpW, vpH, topInset) {
   topInset = topInset || 0;
   clear(handle, root._style ? (root._style.background || 0xFF0F172A) : 0xFF0F172A);
   var rootY = buildYoga(root);
-  ygCalculateLayout(rootY, vpW, NaN, 0);
+  ygSetWidth(rootY, vpW);
+  ygSetHeight(rootY, vpH);
+  ygCalculateLayout(rootY, vpW, vpH, 0);
   renderNode(handle, root, 0, 0, topInset);
   ygFreeRecursive(rootY);
 }

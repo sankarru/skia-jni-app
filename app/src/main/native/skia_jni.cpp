@@ -505,7 +505,7 @@ Java_com_example_skiajni_SkiaCanvas_nGetPixels(JNIEnv* env, jclass, jlong h) {
     if (!nc->surface->peekPixels(&src)) return nullptr;
 
     SkImageInfo info = SkImageInfo::Make(nc->width, nc->height,
-                                         kRGBA_8888_SkColorType, kPremul_SkAlphaType);
+                                         kBGRA_8888_SkColorType, kPremul_SkAlphaType);
     jsize size = static_cast<jsize>(info.computeByteSize(info.minRowBytes()));
     jbyteArray out = env->NewByteArray(size);
     if (!out) return nullptr;
