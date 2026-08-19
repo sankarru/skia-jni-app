@@ -271,8 +271,6 @@ Java_com_example_skiajni_VulkanSurfaceView_nRender(JNIEnv* env, jobject, jlong h
                                          kRGBA_8888_SkColorType, kPremul_SkAlphaType);
     auto surf = SkSurfaces::RenderTarget(r->grContext.get(), skgpu::Budgeted::kNo, info);
     if (!surf) { LOGE("offscreen RenderTarget failed"); return nullptr; }
-    LOGI("surface info: %dx%d colorType=%d alphaType=%d",
-         surf->width(), surf->height(), (int)surf->imageInfo().colorType(), (int)surf->imageInfo().alphaType());
 
     auto* canvas = surf->getCanvas();
     canvas->clear(SkColorSetARGB(255, 18, 18, 18));
@@ -299,8 +297,6 @@ Java_com_example_skiajni_VulkanSurfaceView_nRender(JNIEnv* env, jobject, jlong h
     SkPixmap pm(info, dst, info.minRowBytes());
     bool ok = surf->readPixels(pm, 0, 0);
     env->ReleaseByteArrayElements(out, dst, 0);
-    LOGI("nRender size=%d readPixels=%d p0=%02x%02x%02x", (int)size, (int)ok,
-         (unsigned char)dst[0], (unsigned char)dst[1], (unsigned char)dst[2]);
     return ok ? out : nullptr;
 }
 

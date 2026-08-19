@@ -92,26 +92,12 @@ static void initFonts() {
 
     if (gFontMgr) {
         gTypeface = gFontMgr->matchFamilyStyle(nullptr, SkFontStyle());
-        if (gTypeface) {
-            SkString fam;
-            gTypeface->getFamilyName(&fam);
-            __android_log_print(ANDROID_LOG_DEBUG, "SkiaJNI", "default font: %s", fam.c_str());
-            return;
-        }
+        if (gTypeface) return;
         // Try loading a known system font file directly.
         for (const char* path : candidates) {
             auto tf = gFontMgr->makeFromFile(path, 0);
-            if (tf) {
-                gTypeface = std::move(tf);
-                SkString fam;
-                gTypeface->getFamilyName(&fam);
-                __android_log_print(ANDROID_LOG_DEBUG, "SkiaJNI", "font from file %s (%s)", path, fam.c_str());
-                return;
-            }
+            if (tf) { gTypeface = std::move(tf); return; }
         }
-        __android_log_print(ANDROID_LOG_DEBUG, "SkiaJNI", "no usable system font found");
-    } else {
-        __android_log_print(ANDROID_LOG_DEBUG, "SkiaJNI", "SkFontMgr_New_AndroidNDK returned NULL");
     }
 }
 
@@ -136,10 +122,7 @@ extern "C" {
 JNIEXPORT jlong JNICALL
 Java_com_example_skiajni_SkiaCanvas_nCreateRaster(JNIEnv*, jclass, jint w, jint h) {
     auto surf = SkSurfaces::Raster(SkImageInfo::MakeN32Premul(w, h), nullptr);
-    if (!surf) {
-        __android_log_print(ANDROID_LOG_DEBUG, "SkiaJNI", "nCreateRaster FAILED %dx%d", w, h);
-        return 0;
-    }
+    if (!surf) return 0;
     auto nc = new NativeCanvas();
     nc->backend = NativeCanvas::RASTER;
     nc->width = w;
@@ -157,10 +140,7 @@ Java_com_example_skiajni_SkiaCanvas_nDestroy(JNIEnv*, jclass, jlong h) {
 
 JNIEXPORT void JNICALL
 Java_com_example_skiajni_SkiaCanvas_nClear(JNIEnv*, jclass, jlong h, jint c) {
-    auto* c2 = getCanvas(h);
-    __android_log_print(ANDROID_LOG_DEBUG, "SkiaJNI", "nClear h=%lld canvas=%p color=%08x",
-                        (long long)h, (void*)c2, (unsigned)c);
-    if (c2) c2->clear(toARGB(c));
+    if (auto* c2 = getCanvas(h)) c2->clear(toARGB(c));
 }
 
 JNIEXPORT void JNICALL
@@ -522,15 +502,7 @@ Java_com_example_skiajni_SkiaCanvas_nGetPixels(JNIEnv* env, jclass, jlong h) {
 
     // Read the raster surface pixels directly.
     SkPixmap src;
-    if (!nc->surface->peekPixels(&src)) {
-        __android_log_print(ANDROID_LOG_DEBUG, "SkiaJNI", "peekPixels FAILED");
-        return nullptr;
-    }
-    __android_log_print(ANDROID_LOG_DEBUG, "SkiaJNI", "peekPixels ok size=%dx%d rowBytes=%zu colorType=%d",
-                        src.width(), src.height(), src.rowBytes(), (int)src.colorType());
-    const uint32_t* p0 = (const uint32_t*)src.addr();
-    __android_log_print(ANDROID_LOG_DEBUG, "SkiaJNI", "pixel[0]=0x%08x pixel[center]=0x%08x",
-                        (unsigned)p0[0], (unsigned)p0[(src.height()/2)*src.width() + src.width()/2]);
+    if (!nc->surface->peekPixels(&src)) return nullptr;
 
     SkImageInfo info = SkImageInfo::Make(nc->width, nc->height,
                                          kRGBA_8888_SkColorType, kPremul_SkAlphaType);

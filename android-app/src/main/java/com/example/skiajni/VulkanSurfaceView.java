@@ -43,7 +43,6 @@ public class VulkanSurfaceView extends FrameLayout {
         height = h;
         if (nativeHandle == 0) {
             nativeHandle = nCreate(w, h);
-            android.util.Log.d("SkiaVk", "init native=" + nativeHandle + " " + w + "x" + h);
         }
     }
 
@@ -62,9 +61,7 @@ public class VulkanSurfaceView extends FrameLayout {
                         bitmap.copyPixelsFromBuffer(ByteBuffer.wrap(px));
                         post(() -> imageView.setImageBitmap(bitmap));
                     }
-                } catch (Throwable t) {
-                    android.util.Log.d("SkiaVk", "render error: " + t.getMessage());
-                }
+                } catch (Throwable ignored) {}
                 long now = System.nanoTime();
                 long frameTime = 16_666_667L;
                 long sleep = frameTime - (now - last);
