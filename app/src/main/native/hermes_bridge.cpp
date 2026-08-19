@@ -112,8 +112,8 @@ static void initMethods(JNIEnv* env) {
     sM.nPathReset = env->GetStaticMethodID(cls, "nPathReset", "(J)V");
     sM.nPathMoveTo = env->GetStaticMethodID(cls, "nPathMoveTo", "(JFF)V");
     sM.nPathLineTo = env->GetStaticMethodID(cls, "nPathLineTo", "(JFF)V");
-    sM.nPathQuadTo = env->GetStaticMethodID(cls, "nPathQuadTo", "(JFFF)V");
-    sM.nPathCubicTo = env->GetStaticMethodID(cls, "nPathCubicTo", "(JFFFFF)V");
+    sM.nPathQuadTo = env->GetStaticMethodID(cls, "nPathQuadTo", "(JFFFF)V");
+    sM.nPathCubicTo = env->GetStaticMethodID(cls, "nPathCubicTo", "(JFFFFFF)V");
     sM.nPathClose = env->GetStaticMethodID(cls, "nPathClose", "(J)V");
     sM.nDrawPath = env->GetStaticMethodID(cls, "nDrawPath", "(JJIFZ)V");
 }
