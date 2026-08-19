@@ -129,7 +129,7 @@ $TOOLCHAIN_DIR/${TRIPLE}-clang++ $CXXFLAGS -c "$SCRIPT_DIR/app/src/main/native/v
 
 if [ -f "$HERMES_LIB" ]; then
     echo ">>> Linking Hermes (libhermesvm_a.a)..."
-    $TOOLCHAIN_DIR/${TRIPLE}-clang++ $CXXFLAGS -c "$SCRIPT_DIR/app/src/main/native/hermes_bridge.cpp" -o "$BUILD_DIR/hermes_bridge.o"
+    $TOOLCHAIN_DIR/${TRIPLE}-clang++ $CXXFLAGS -fno-rtti -c "$SCRIPT_DIR/app/src/main/native/hermes_bridge.cpp" -o "$BUILD_DIR/hermes_bridge.o"
     $TOOLCHAIN_DIR/${TRIPLE}-clang++ -shared \
         -o "$JNI_SO" "$BUILD_DIR/skia_jni.o" "$BUILD_DIR/vulkan_renderer.o" "$BUILD_DIR/hermes_bridge.o" \
         -L"$SKIA_OUT" -lskia \
