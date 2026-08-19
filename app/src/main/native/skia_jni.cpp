@@ -80,6 +80,16 @@ static void initFonts() {
     gFontMgr = SkFontMgr_New_AndroidNDK(true, SkFontScanner_Make_FreeType());
     if (gFontMgr) {
         gTypeface = gFontMgr->matchFamilyStyle(nullptr, SkFontStyle());
+        if (gTypeface) {
+            SkString fam;
+            gTypeface->getFamilyName(&fam);
+            __android_log_print(ANDROID_LOG_DEBUG, "SkiaJNI", "font mgr=ok typeface=%p family=%s",
+                                (void*)gTypeface.get(), fam.c_str());
+        } else {
+            __android_log_print(ANDROID_LOG_DEBUG, "SkiaJNI", "matchFamilyStyle returned NULL");
+        }
+    } else {
+        __android_log_print(ANDROID_LOG_DEBUG, "SkiaJNI", "SkFontMgr_New_AndroidNDK returned NULL");
     }
 }
 
@@ -461,7 +471,14 @@ JNIEXPORT jboolean JNICALL
 Java_com_example_skiajni_SkiaCanvas_nSaveToFile(JNIEnv* env, jclass, jlong h, jstring path) {
     auto nc = reinterpret_cast<NativeCanvas*>(h);
     if (!nc || !nc->surface) return JNI_FALSE;
-    auto img = nc->surface->makeImageSnapshot();
+    // Use peekPixels for raster surfaces (consistent with getPixels).
+    SkPixmap pm;
+    sk_sp<SkImage> img;
+    if (nc->surface->peekPixels(&pm)) {
+        img = SkImages::RasterFromPixmap(pm, nullptr, nullptr);
+    } else {
+        img = nc->surface->makeImageSnapshot();
+    }
     if (!img) return JNI_FALSE;
     const char* cpath = env->GetStringUTFChars(path, nullptr);
     auto data = SkPngEncoder::Encode(nullptr, img.get(), SkPngEncoder::Options());
