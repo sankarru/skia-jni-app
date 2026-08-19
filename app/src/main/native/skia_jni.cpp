@@ -522,7 +522,15 @@ Java_com_example_skiajni_SkiaCanvas_nGetPixels(JNIEnv* env, jclass, jlong h) {
 
     // Read the raster surface pixels directly.
     SkPixmap src;
-    if (!nc->surface->peekPixels(&src)) return nullptr;
+    if (!nc->surface->peekPixels(&src)) {
+        __android_log_print(ANDROID_LOG_DEBUG, "SkiaJNI", "peekPixels FAILED");
+        return nullptr;
+    }
+    __android_log_print(ANDROID_LOG_DEBUG, "SkiaJNI", "peekPixels ok size=%dx%d rowBytes=%zu colorType=%d",
+                        src.width(), src.height(), src.rowBytes(), (int)src.colorType());
+    const uint32_t* p0 = (const uint32_t*)src.addr();
+    __android_log_print(ANDROID_LOG_DEBUG, "SkiaJNI", "pixel[0]=0x%08x pixel[center]=0x%08x",
+                        (unsigned)p0[0], (unsigned)p0[(src.height()/2)*src.width() + src.width()/2]);
 
     SkImageInfo info = SkImageInfo::Make(nc->width, nc->height,
                                          kRGBA_8888_SkColorType, kPremul_SkAlphaType);
