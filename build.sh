@@ -106,17 +106,14 @@ HERMES_BUILD="${HERMES_BUILD:-$HERMES_DIR/build-android}"
 HERMES_INC="$HERMES_DIR/API"
 HERMES_JSI_INC="$HERMES_DIR/API/jsi"
 HERMES_PUBLIC_INC="$HERMES_DIR/public"
-# Hermes produces libhermesvm_a.a (aggregate static lib) + boost context
-HERMES_LIB="$HERMES_BUILD/libhermesvm_a.a"
+# Hermes produces lib/libhermesvm_a.a (aggregate static lib) + boost context
+HERMES_LIB="$HERMES_BUILD/lib/libhermesvm_a.a"
 if [ ! -f "$HERMES_LIB" ]; then
     echo ">>> Debug: HERMES_BUILD=$HERMES_BUILD"
     find "$HERMES_BUILD" -name "libhermes*.a" 2>/dev/null | head -10
     HERMES_LIB=$(find "$HERMES_BUILD" -name "libhermesvm_a.a" 2>/dev/null | head -1)
 fi
-HERMES_BOOST="$HERMES_BUILD/external/boost/libboost_context.a"
-if [ ! -f "$HERMES_BOOST" ]; then
-    HERMES_BOOST=$(find "$HERMES_BUILD" -name "libboost_context.a" 2>/dev/null | head -1)
-fi
+HERMES_BOOST=$(find "$HERMES_BUILD" -name "libboost_context.a" 2>/dev/null | head -1)
 
 CXXFLAGS="-std=c++17 -fPIC -O2 -DNDEBUG -Wall -Wextra \
     -I${SKIA_DIR} \
