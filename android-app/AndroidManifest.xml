@@ -6,6 +6,8 @@
 
     <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="34" />
 
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <uses-feature android:glEsVersion="0x00020000" android:required="false" />
 
     <application
@@ -24,6 +26,10 @@
 
         <activity
             android:name=".VulkanActivity"
+            android:exported="true" />
+
+        <activity
+            android:name=".ImageGalleryActivity"
             android:exported="true" />
     </application>
 </manifest>
