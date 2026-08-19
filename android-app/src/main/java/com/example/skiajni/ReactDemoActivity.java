@@ -139,35 +139,35 @@ public class ReactDemoActivity extends Activity {
                     "  View({ style: { background: 0xFFF8FAFC, padding: 0, gap: 0 } }," +
                     // ── Header (edge-to-edge, purple behind status bar) ──
                     "    View({ style: { background: 0xFF6D28D9, paddingTop: " + headerPadTop + "," +
-                    "        paddingBottom: 24, paddingLeft: 20, paddingRight: 20 } }," +
-                    "      Text({ style: { fontSize: 14, color: 0xFFC4B5FD } }, 'Good Morning')," +
-                    "      Text({ style: { fontSize: 26, fontWeight: 'bold', color: 0xFFFFFFFF, marginTop: 4 } }, 'Alex')," +
-                    "      View({ style: { flexDirection: 'row', gap: 8, marginTop: 12, alignItems: 'center' } }," +
+                    "        paddingBottom: 48, paddingLeft: 24, paddingRight: 24 } }," +
+                    "      Text({ style: { fontSize: 16, color: 0xFFC4B5FD } }, 'Good Morning')," +
+                    "      Text({ style: { fontSize: 36, fontWeight: 'bold', color: 0xFFFFFFFF, marginTop: 6 } }, 'Alex')," +
+                    "      View({ style: { flexDirection: 'row', gap: 10, marginTop: 18, alignItems: 'center' } }," +
                     "        Badge('MINDFUL', 0xFFEDE9FE, 0xFF7C3AED)," +
-                    "        Text({ style: { fontSize: 12, color: 0xFFC4B5FD } }, 'Aug 19, 2026')" +
+                    "        Text({ style: { fontSize: 14, color: 0xFFC4B5FD } }, 'Aug 19, 2026')" +
                     "      )" +
                     "    )," +
                     // ── Stats row ────────────────────────────────
-                    "    View({ style: { flexDirection: 'row', gap: 10, padding: 16 } }," +
+                    "    View({ style: { flexDirection: 'row', gap: 14, padding: 20, marginTop: 10 } }," +
                     "      StatPill('7,243', 'Steps', 0xFF7C3AED)," +
                     "      StatPill('85', 'Mood', 0xFFF59E0B)," +
                     "      StatPill('12', 'Day Streak', 0xFF10B981)" +
                     "    )," +
                     // ── Quote card ───────────────────────────────
-                    "    View({ style: { margin: 16, marginTop: 4, padding: 18, background: 0xFFFFFFFF," +
-                    "        borderRadius: 14, borderWidth: 1, borderColor: 0xFFF1F5F9 } }," +
+                    "    View({ style: { margin: 20, marginTop: 14, padding: 20, background: 0xFFFFFFFF," +
+                    "        borderRadius: 16, borderWidth: 1, borderColor: 0xFFF1F5F9 } }," +
                     "      View({ style: { flexDirection: 'row', gap: 8, alignItems: 'center' } }," +
                     "        Badge('QUOTE', 0xFFFDF4FF, 0xFFA855F7)," +
-                    "        Text({ style: { fontSize: 11, color: 0xFF94A3B8 } }, 'Daily')" +
+                    "        Text({ style: { fontSize: 12, color: 0xFF94A3B8 } }, 'Daily')" +
                     "      )," +
-                    "      Text({ style: { fontSize: 16, color: 0xFF334155, marginTop: 12, fontWeight: 'bold' } }," +
+                    "      Text({ style: { fontSize: 18, color: 0xFF334155, marginTop: 16, fontWeight: 'bold' } }," +
                     "        'The only way to do great work is to love what you do.')," +
-                    "      Text({ style: { fontSize: 13, color: 0xFF94A3B8, marginTop: 6 } }, 'Steve Jobs')" +
+                    "      Text({ style: { fontSize: 14, color: 0xFF94A3B8, marginTop: 8 } }, 'Steve Jobs')" +
                     "    )," +
                     // ── Habits section ───────────────────────────
-                    "    View({ style: { padding: 16, paddingTop: 4 } }," +
+                    "    View({ style: { padding: 20, paddingTop: 8 } }," +
                     "      SectionTitle('DAILY HABITS')," +
-                    "      View({ style: { gap: 8, marginTop: 10 } }," +
+                    "      View({ style: { gap: 10, marginTop: 12 } }," +
                     "        HabitItem('yoga', 'Morning Yoga', true, 0xFF10B981)," +
                     "        HabitItem('water', 'Hydration Goal', true, 0xFF3B82F6)," +
                     "        HabitItem('book', 'Read 20 Pages', false, 0xFFF59E0B)," +
@@ -176,51 +176,51 @@ public class ReactDemoActivity extends Activity {
                     "      )" +
                     "    )," +
                     // ── Progress card ────────────────────────────
-                    "    View({ style: { margin: 16, marginTop: 4, padding: 18, background: 0xFFFFFFFF," +
-                    "        borderRadius: 14, borderWidth: 1, borderColor: 0xFFF1F5F9 } }," +
+                    "    View({ style: { margin: 20, marginTop: 18, padding: 20, background: 0xFFFFFFFF," +
+                    "        borderRadius: 16, borderWidth: 1, borderColor: 0xFFF1F5F9 } }," +
                     "      SectionTitle('WEEKLY PROGRESS')," +
-                    "      View({ style: { gap: 12, marginTop: 12 } }," +
-                    "        View({ style: { gap: 6 } }," +
+                    "      View({ style: { gap: 14, marginTop: 12 } }," +
+                    "        View({ style: { gap: 8 } }," +
                     "          View({ style: { flexDirection: 'row', justifyContent: 'space-between' } }," +
-                    "            Text({ style: { fontSize: 13, color: 0xFF475569 } }, 'Meditation')," +
-                    "            Text({ style: { fontSize: 13, fontWeight: 'bold', color: 0xFF7C3AED } }, '85%')" +
+                    "            Text({ style: { fontSize: 15, color: 0xFF475569 } }, 'Meditation')," +
+                    "            Text({ style: { fontSize: 15, fontWeight: 'bold', color: 0xFF7C3AED } }, '85%')" +
                     "          )," +
-                    "          ProgressBar(85, 100, 0xFF7C3AED, 0xFFEDE9FE, 10)" +
+                    "          ProgressBar(85, 100, 0xFF7C3AED, 0xFFEDE9FE, 14)" +
                     "        )," +
-                    "        View({ style: { gap: 6 } }," +
+                    "        View({ style: { gap: 8 } }," +
                     "          View({ style: { flexDirection: 'row', justifyContent: 'space-between' } }," +
-                    "            Text({ style: { fontSize: 13, color: 0xFF475569 } }, 'Exercise')," +
-                    "            Text({ style: { fontSize: 13, fontWeight: 'bold', color: 0xFF10B981 } }, '72%')" +
+                    "            Text({ style: { fontSize: 15, color: 0xFF475569 } }, 'Exercise')," +
+                    "            Text({ style: { fontSize: 15, fontWeight: 'bold', color: 0xFF10B981 } }, '72%')" +
                     "          )," +
-                    "          ProgressBar(72, 100, 0xFF10B981, 0xFFDCFCE7, 10)" +
+                    "          ProgressBar(72, 100, 0xFF10B981, 0xFFDCFCE7, 14)" +
                     "        )," +
-                    "        View({ style: { gap: 6 } }," +
+                    "        View({ style: { gap: 8 } }," +
                     "          View({ style: { flexDirection: 'row', justifyContent: 'space-between' } }," +
-                    "            Text({ style: { fontSize: 13, color: 0xFF475569 } }, 'Nutrition')," +
-                    "            Text({ style: { fontSize: 13, fontWeight: 'bold', color: 0xFFF59E0B } }, '60%')" +
+                    "            Text({ style: { fontSize: 15, color: 0xFF475569 } }, 'Nutrition')," +
+                    "            Text({ style: { fontSize: 15, fontWeight: 'bold', color: 0xFFF59E0B } }, '60%')" +
                     "          )," +
-                    "          ProgressBar(60, 100, 0xFFF59E0B, 0xFFFEF3C7, 10)" +
+                    "          ProgressBar(60, 100, 0xFFF59E0B, 0xFFFEF3C7, 14)" +
                     "        )" +
                     "      )" +
                     "    )," +
                     // ── Affirmation banner ───────────────────────
-                    "    View({ style: { margin: 16, marginTop: 4, padding: 18, background: 0xFF7C3AED," +
-                    "        borderRadius: 14, alignItems: 'center' } }," +
-                    "      Text({ style: { fontSize: 14, color: 0xFFEDE9FE } }, 'TODAY\\'S AFFIRMATION')," +
-                    "      Text({ style: { fontSize: 17, fontWeight: 'bold', color: 0xFFFFFFFF," +
-                    "        marginTop: 8, textAlign: 'center' } }," +
+                    "    View({ style: { margin: 20, marginTop: 18, padding: 22, background: 0xFF7C3AED," +
+                    "        borderRadius: 16, alignItems: 'center' } }," +
+                    "      Text({ style: { fontSize: 15, color: 0xFFEDE9FE } }, 'TODAY\\'S AFFIRMATION')," +
+                    "      Text({ style: { fontSize: 20, fontWeight: 'bold', color: 0xFFFFFFFF," +
+                    "        marginTop: 12, textAlign: 'center' } }," +
                     "        'I am worthy of love, peace, and joy.')" +
                     "    )," +
                     // ── Action button ────────────────────────────
-                    "    View({ style: { paddingLeft: 16, paddingRight: 16, paddingTop: 4 } }," +
+                    "    View({ style: { paddingLeft: 20, paddingRight: 20, paddingTop: 8 } }," +
                     "      Button({ style: { background: 0xFF7C3AED, color: 0xFFFFFFFF," +
-                    "        fontSize: 16, fontWeight: 'bold', borderRadius: 12, padding: 16," +
+                    "        fontSize: 18, fontWeight: 'bold', borderRadius: 14, padding: 20," +
                     "        borderWidth: 0, alignItems: 'center', justifyContent: 'center', widthPercent: 100 } }," +
                     "        'Start Evening Routine')" +
                     "    )," +
                     // ── Footer (clears nav bar) ──────────────────
-                    "    Text({ style: { fontSize: 11, color: 0xFF94A3B8," +
-                    "      textAlign: 'center', marginTop: 4, paddingBottom: " + bottomPad + " } }," +
+                    "    Text({ style: { fontSize: 12, color: 0xFF94A3B8," +
+                    "      textAlign: 'center', marginTop: 14, paddingBottom: " + bottomPad + " } }," +
                     "      'Good Vibes  |  Yoga + Hermes + Skia')" +
                     "  )" +
                     ", " + W + ", " + H + "); " +

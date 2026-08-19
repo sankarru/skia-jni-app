@@ -282,6 +282,26 @@ Java_com_example_skiajni_JsCanvas_nCreate(JNIEnv* env, jclass, jint w, jint h) {
             YGNodeStyleSetPadding(ygNode(a), YGEdgeAll, (float)num(a, 1));
             return Value::undefined();
         }));
+    rt.global().setProperty(rt, "ygSetPaddingTop",
+        makeHost(ctx, "ygSetPaddingTop", [ygNode](JsCtx*, Runtime&, const Value* a, size_t) {
+            YGNodeStyleSetPadding(ygNode(a), YGEdgeTop, (float)num(a, 1));
+            return Value::undefined();
+        }));
+    rt.global().setProperty(rt, "ygSetPaddingBottom",
+        makeHost(ctx, "ygSetPaddingBottom", [ygNode](JsCtx*, Runtime&, const Value* a, size_t) {
+            YGNodeStyleSetPadding(ygNode(a), YGEdgeBottom, (float)num(a, 1));
+            return Value::undefined();
+        }));
+    rt.global().setProperty(rt, "ygSetPaddingLeft",
+        makeHost(ctx, "ygSetPaddingLeft", [ygNode](JsCtx*, Runtime&, const Value* a, size_t) {
+            YGNodeStyleSetPadding(ygNode(a), YGEdgeLeft, (float)num(a, 1));
+            return Value::undefined();
+        }));
+    rt.global().setProperty(rt, "ygSetPaddingRight",
+        makeHost(ctx, "ygSetPaddingRight", [ygNode](JsCtx*, Runtime&, const Value* a, size_t) {
+            YGNodeStyleSetPadding(ygNode(a), YGEdgeRight, (float)num(a, 1));
+            return Value::undefined();
+        }));
     rt.global().setProperty(rt, "ygSetMargin",
         makeHost(ctx, "ygSetMargin", [ygNode](JsCtx*, Runtime&, const Value* a, size_t) {
             YGNodeStyleSetMargin(ygNode(a), YGEdgeAll, (float)num(a, 1));

@@ -3,6 +3,12 @@
 
 // ── Default styles ────────────────────────────────────────────────────
 
+// Density scale: layout dimensions are in physical px (S=1, canvas is 1080x2400).
+// Font sizes are scaled by FS so text is properly readable on the high-density
+// (420dpi) screen — without enlarging the whole layout off-screen.
+var S = 1;
+var FS = 2.6;
+
 var DEFAULT_VIEW = {
   background: 0, padding: 0, margin: 0, borderRadius: 0,
   borderWidth: 0, borderColor: 0, width: 0, height: 0,
@@ -30,12 +36,12 @@ function merge(base, over) {
 }
 
 function margins(s) {
-  var m = s.margin || 0;
+  var m = (s.margin || 0) * S;
   return {
-    l: (s.marginLeft !== undefined) ? s.marginLeft : m,
-    r: (s.marginRight !== undefined) ? s.marginRight : m,
-    t: (s.marginTop !== undefined) ? s.marginTop : m,
-    b: (s.marginBottom !== undefined) ? s.marginBottom : m
+    l: (s.marginLeft !== undefined) ? s.marginLeft * S : m,
+    r: (s.marginRight !== undefined) ? s.marginRight * S : m,
+    t: (s.marginTop !== undefined) ? s.marginTop * S : m,
+    b: (s.marginBottom !== undefined) ? s.marginBottom * S : m
   };
 }
 
@@ -66,7 +72,7 @@ function ProgressBar(value, max, color, trackColor, h) {
   max = max || 100;
   color = color || 0xFF7C3AED;
   trackColor = trackColor || 0xFFE2E8F0;
-  h = h || 10;
+  h = (h || 10) * S;
   var pct = Math.min(value / max, 1) * 100;
   return View({ style: { height: h, borderRadius: h / 2, background: trackColor } },
     View({ style: { height: h, borderRadius: h / 2, background: color,
@@ -75,39 +81,39 @@ function ProgressBar(value, max, color, trackColor, h) {
 }
 
 function Divider() {
-  return View({ style: { height: 1, background: 0xFFE2E8F0, marginTop: 12, marginBottom: 12 } });
+  return View({ style: { height: 1 * S, background: 0xFFE2E8F0, marginTop: 12 * S, marginBottom: 12 * S } });
 }
 
 function SectionTitle(text) {
-  return Text({ style: { fontSize: 13, fontWeight: "bold", color: 0xFF94A3B8,
+  return Text({ style: { fontSize: 14, fontWeight: "bold", color: 0xFF94A3B8,
     letterSpacing: 2 } }, text);
 }
 
 function Badge(text, bgColor, textColor) {
-  return View({ style: { background: bgColor || 0xFFEDE9FE, borderRadius: 6,
-      padding: 4, paddingLeft: 8, paddingRight: 8 } },
-    Text({ style: { fontSize: 11, fontWeight: "bold", color: textColor || 0xFF7C3AED } }, text)
+  return View({ style: { background: bgColor || 0xFFEDE9FE, borderRadius: 8 * S,
+      padding: 6 * S, paddingLeft: 10 * S, paddingRight: 10 * S } },
+    Text({ style: { fontSize: 12, fontWeight: "bold", color: textColor || 0xFF7C3AED } }, text)
   );
 }
 
 function StatPill(value, label, color) {
-  return View({ style: { background: 0xFFFFFFFF, borderRadius: 12, padding: 14,
-      borderWidth: 1, borderColor: 0xFFF1F5F9, flexGrow: 1, alignItems: "center" } },
-    Text({ style: { fontSize: 22, fontWeight: "bold", color: color || 0xFF7C3AED } }, value),
-    Text({ style: { fontSize: 11, color: 0xFF94A3B8, marginTop: 2 } }, label)
+  return View({ style: { background: 0xFFFFFFFF, borderRadius: 18 * S, padding: 28 * S,
+      borderWidth: 1 * S, borderColor: 0xFFF1F5F9, flexGrow: 1, alignItems: "center" } },
+    Text({ style: { fontSize: 34, fontWeight: "bold", color: color || 0xFF7C3AED } }, value),
+    Text({ style: { fontSize: 13, color: 0xFF94A3B8, marginTop: 6 } }, label)
   );
 }
 
 function HabitItem(emoji, name, done, color) {
   color = done ? (color || 0xFF10B981) : 0xFFCBD5E1;
   var bg = done ? 0xFFECFDF5 : 0xFFF8FAFC;
-  return View({ style: { flexDirection: "row", alignItems: "center", padding: 12,
-      background: bg, borderRadius: 10, gap: 12 } },
-    View({ style: { width: 36, height: 36, borderRadius: 18, background: color,
+  return View({ style: { flexDirection: "row", alignItems: "center", padding: 22 * S,
+      background: bg, borderRadius: 14 * S, gap: 16 * S } },
+    View({ style: { width: 54 * S, height: 54 * S, borderRadius: 27 * S, background: color,
         alignItems: "center", justifyContent: "center" } },
-      Text({ style: { fontSize: 16 } }, emoji)
+      Text({ style: { fontSize: 20 } }, emoji)
     ),
-    Text({ style: { fontSize: 15, color: 0xFF334155, fontWeight: done ? "bold" : "normal" } }, name),
+    Text({ style: { fontSize: 17, color: 0xFF334155, fontWeight: done ? "bold" : "normal" } }, name),
     done
       ? Badge("done", 0xFFDCFCE7, 0xFF16A34A)
       : Badge("pending", 0xFFF1F5F9, 0xFF94A3B8)
@@ -126,7 +132,7 @@ function buildYoga(node) {
   if (node.type === "Text") {
     var txt = node.children.filter(function(c) { return typeof c === "string"; }).join("");
     node._text = txt;
-    var fs = s.fontSize || 16;
+    var fs = (s.fontSize || 16) * FS;
     var tw = measureText(txt, fs);
     var textBold = s.fontWeight === "bold";
     if (textBold) tw = tw + txt.length * 0.8;
@@ -144,20 +150,22 @@ function buildYoga(node) {
     node._bold = textBold;
     node._align = s.textAlign || "left";
     node._letterSpacing = s.letterSpacing || 0;
+    if (s.paddingTop !== undefined) ygSetPaddingTop(yn, s.paddingTop * S);
+    if (s.paddingBottom !== undefined) ygSetPaddingBottom(yn, s.paddingBottom * S);
     return yn;
   }
 
   if (node.type === "Button") {
     var bt = node.children.filter(function(c) { return typeof c === "string"; }).join("");
     node._text = bt;
-    var bfs = s.fontSize || 16;
+    var bfs = (s.fontSize || 16) * FS;
     var contentW = measureText(bt, bfs) + bt.length * 0.8;
     var contentH = bfs * 1.4;
-    var pad = s.padding || 16, bor = s.borderWidth || 0;
-    if (s.width > 0) ygSetWidth(yn, s.width);
+    var pad = (s.padding || 16) * S, bor = (s.borderWidth || 0) * S;
+    if (s.width > 0) ygSetWidth(yn, s.width * S);
     else if (s.widthPercent > 0) ygSetWidthPercent(yn, s.widthPercent);
     else ygSetWidth(yn, contentW + 2 * (pad + bor));
-    if (s.height > 0) ygSetHeight(yn, s.height);
+    if (s.height > 0) ygSetHeight(yn, s.height * S);
     else ygSetHeight(yn, contentH + 2 * (pad + bor));
     ygSetPadding(yn, pad);
     ygSetBorder(yn, bor);
@@ -165,6 +173,7 @@ function buildYoga(node) {
     ygSetJustifyContent(yn, "center");
     node._fs = bfs;
     node._color = s.color;
+    node._radius = (s.borderRadius || 0) * S;
     return yn;
   }
 
@@ -172,12 +181,16 @@ function buildYoga(node) {
   ygSetFlexDirection(yn, s.flexDirection || "column");
   ygSetJustifyContent(yn, s.justifyContent || "flex-start");
   ygSetAlignItems(yn, s.alignItems || "stretch");
-  ygSetGap(yn, s.gap || 0);
-  ygSetPadding(yn, s.padding || 0);
-  ygSetBorder(yn, s.borderWidth || 0);
-  if (s.width > 0) ygSetWidth(yn, s.width);
+  ygSetGap(yn, (s.gap || 0) * S);
+  ygSetPadding(yn, (s.padding || 0) * S);
+  if (s.paddingTop !== undefined) ygSetPaddingTop(yn, s.paddingTop * S);
+  if (s.paddingBottom !== undefined) ygSetPaddingBottom(yn, s.paddingBottom * S);
+  if (s.paddingLeft !== undefined) ygSetPaddingLeft(yn, s.paddingLeft * S);
+  if (s.paddingRight !== undefined) ygSetPaddingRight(yn, s.paddingRight * S);
+  ygSetBorder(yn, (s.borderWidth || 0) * S);
+  if (s.width > 0) ygSetWidth(yn, s.width * S);
   else if (s.widthPercent > 0) ygSetWidthPercent(yn, s.widthPercent);
-  if (s.height > 0) ygSetHeight(yn, s.height);
+  if (s.height > 0) ygSetHeight(yn, s.height * S);
   if (s.flexGrow) ygSetFlexGrow(yn, s.flexGrow);
   if (s.flexShrink !== undefined) ygSetFlexShrink(yn, s.flexShrink);
   ygSetMargin(yn, mg.l);
@@ -187,6 +200,7 @@ function buildYoga(node) {
     ygSetMarginLeft(yn, mg.l);
     ygSetMarginRight(yn, mg.r);
   }
+  node._radius = (s.borderRadius || 0) * S;
 
   var kids = node.children.filter(function(c) {
     return c != null && typeof c !== "string";
@@ -210,19 +224,20 @@ function renderNode(handle, node, absX, absY) {
 
   // Background
   if (s.background && s.background !== 0) {
-    if (s.borderRadius && s.borderRadius > 0) {
-      fillRoundRect(handle, x, y, w, h, s.borderRadius, s.borderRadius, s.background);
+    if (node._radius > 0) {
+      fillRoundRect(handle, x, y, w, h, node._radius, node._radius, s.background);
     } else {
       fillRect(handle, x, y, w, h, s.background);
     }
   }
 
   // Border
-  if (s.borderWidth && s.borderWidth > 0 && s.borderColor) {
-    if (s.borderRadius && s.borderRadius > 0) {
-      drawRoundRect(handle, x, y, w, h, s.borderRadius, s.borderRadius, s.borderColor, s.borderWidth);
+  var bw = (s.borderWidth || 0) * S;
+  if (bw > 0 && s.borderColor) {
+    if (node._radius > 0) {
+      drawRoundRect(handle, x, y, w, h, node._radius, node._radius, s.borderColor, bw);
     } else {
-      drawRect(handle, x, y, w, h, s.borderColor, s.borderWidth);
+      drawRect(handle, x, y, w, h, s.borderColor, bw);
     }
   }
 
