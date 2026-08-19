@@ -8,13 +8,18 @@ NDK="${NDK:-${ANDROID_NDK:-/opt/android-ndk-r29}}"
 HERMES_DIR="${HERMES_DIR:-$HOME/hermes}"
 JOBS="$(nproc)"
 
+if [ ! -d "$HERMES_DIR/.git" ]; then
+    echo ">>> Cloning Hermes..."
+    git clone --depth 1 https://github.com/facebook/hermes.git "$HERMES_DIR"
+fi
+
 # --- Stage 1: native host hermesc ---
 HOST_BUILD="$HERMES_DIR/build-host"
 mkdir -p "$HOST_BUILD"
 cd "$HOST_BUILD"
 
 echo ">>> Stage 1: Building native hermesc + shermes (x86_64)..."
-cmake "$HERMES_DIR" \
+cmake -S "$HERMES_DIR" -B "$HOST_BUILD" \
     -DCMAKE_BUILD_TYPE=Release \
     -DHERMES_UNICODE_LITE=ON \
     -DHERMES_BUILD_LEAN_LIBHERMES=ON \
@@ -23,7 +28,7 @@ cmake "$HERMES_DIR" \
     -DBUILD_TESTING=OFF \
     -DBUILD_SHARED_LIBS=OFF
 
-cmake --build . --target hermesc shermes -j"$JOBS"
+cmake --build "$HOST_BUILD" --target hermesc shermes -j"$JOBS"
 HOST_HERMESC="$HOST_BUILD/bin/hermesc"
 echo ">>> Host hermesc: $HOST_HERMESC"
 file "$HOST_HERMESC"
@@ -45,10 +50,8 @@ fi
 BUILD_DIR="$HERMES_DIR/build-android"
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
-cd "$BUILD_DIR"
-
 echo ">>> Stage 2: Configuring Hermes (aarch64-android)..."
-cmake "$HERMES_DIR" \
+cmake -S "$HERMES_DIR" -B "$BUILD_DIR" \
     -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
     -DANDROID_ABI=arm64-v8a \
     -DANDROID_PLATFORM=android-29 \
@@ -62,7 +65,7 @@ cmake "$HERMES_DIR" \
     -DIMPORT_HOST_COMPILERS="$IMPORT_CMAKE"
 
 echo ">>> Building libhermes.a (parallel=$JOBS)..."
-cmake --build . --target hermes -j"$JOBS"
+cmake --build "$BUILD_DIR" --target hermes -j"$JOBS"
 
 LIBHERMES="$BUILD_DIR/libhermes.a"
 echo ">>> Hermes built: $(ls -lh "$LIBHERMES" | awk '{print $5}')"
