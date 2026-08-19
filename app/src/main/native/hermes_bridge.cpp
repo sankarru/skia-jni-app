@@ -121,9 +121,12 @@ Java_com_example_skiajni_JsCanvas_nCreate(JNIEnv* env, jclass, jint w, jint h) {
     rt.global().setProperty(rt, "clear",
         makeHost(ctx, "clear", [](JsCtx* c, Runtime&, const Value* a, size_t) {
             JNIEnv* e = c->env;
-            jlong h = (jlong)(long long)a[0].asNumber();
-            jint color = (jint)a[1].asNumber();
-            LOG("clear: handle=%lld color=%d", (long long)h, color);
+            double rawColor = a[1].asNumber();
+            double rawHandle = a[0].asNumber();
+            jlong h = (jlong)(long long)rawHandle;
+            jint color = (jint)rawColor;
+            LOG("clear: rawHandle=%.0f rawColor=%.0f h=%lld color=%d(0x%x)",
+                rawHandle, rawColor, (long long)h, color, (unsigned)color);
             e->CallStaticVoidMethod(sCanvasClass, sM.clear, h, color);
             return Value::undefined();
         }));

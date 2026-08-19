@@ -97,10 +97,10 @@ public class ReactDemoActivity extends Activity {
                 // ── Scene definition ──────────────────────────────
                 String jsCode =
                     "clear(_handle, 0xFF000000);" +
-                    "fillCircle(_handle, 540, 1200, 300, 0xFF00FF00);" +
                     "'ok'";
 
 js.setCanvas(canvas);
+                android.util.Log.d("SkiaApp", "canvas.handle=" + canvas.getNativeHandle());
                 String result = js.eval(jsCode);
 
                 long dt = (System.nanoTime() - t0) / 1_000_000;
