@@ -106,13 +106,14 @@ HERMES_BUILD="${HERMES_BUILD:-$HERMES_DIR/build-android}"
 HERMES_INC="$HERMES_DIR/API"
 HERMES_JSI_INC="$HERMES_DIR/API/jsi"
 HERMES_PUBLIC_INC="$HERMES_DIR/public"
-# Hermes produces lib/libhermesvm_a.a (aggregate static lib) + boost context
+# Hermes produces lib/libhermesvm_a.a (aggregate static lib) + jsi + boost context
 HERMES_LIB="$HERMES_BUILD/lib/libhermesvm_a.a"
 if [ ! -f "$HERMES_LIB" ]; then
     echo ">>> Debug: HERMES_BUILD=$HERMES_BUILD"
     find "$HERMES_BUILD" -name "libhermes*.a" 2>/dev/null | head -10
     HERMES_LIB=$(find "$HERMES_BUILD" -name "libhermesvm_a.a" 2>/dev/null | head -1)
 fi
+HERMES_JSI="$HERMES_BUILD/jsi/libjsi.a"
 HERMES_BOOST=$(find "$HERMES_BUILD" -name "libboost_context.a" 2>/dev/null | head -1)
 
 CXXFLAGS="-std=c++17 -fPIC -O2 -DNDEBUG -Wall -Wextra \
@@ -128,12 +129,12 @@ $TOOLCHAIN_DIR/${TRIPLE}-clang++ $CXXFLAGS -c "$SCRIPT_DIR/app/src/main/native/s
 $TOOLCHAIN_DIR/${TRIPLE}-clang++ $CXXFLAGS -c "$SCRIPT_DIR/app/src/main/native/vulkan_renderer.cpp" -o "$BUILD_DIR/vulkan_renderer.o"
 
 if [ -f "$HERMES_LIB" ]; then
-    echo ">>> Linking Hermes (libhermesvm_a.a)..."
-    $TOOLCHAIN_DIR/${TRIPLE}-clang++ $CXXFLAGS -fno-rtti -c "$SCRIPT_DIR/app/src/main/native/hermes_bridge.cpp" -o "$BUILD_DIR/hermes_bridge.o"
+    echo ">>> Linking Hermes..."
+    $TOOLCHAIN_DIR/${TRIPLE}-clang++ $CXXFLAGS -c "$SCRIPT_DIR/app/src/main/native/hermes_bridge.cpp" -o "$BUILD_DIR/hermes_bridge.o"
     $TOOLCHAIN_DIR/${TRIPLE}-clang++ -shared \
         -o "$JNI_SO" "$BUILD_DIR/skia_jni.o" "$BUILD_DIR/vulkan_renderer.o" "$BUILD_DIR/hermes_bridge.o" \
         -L"$SKIA_OUT" -lskia \
-        "$HERMES_LIB" ${HERMES_BOOST:+"$HERMES_BOOST"} \
+        "$HERMES_LIB" ${HERMES_JSI:+"$HERMES_JSI"} ${HERMES_BOOST:+"$HERMES_BOOST"} \
         -llog -landroid -ldl -lm -lz \
         -Wl,--gc-sections -Wl,--strip-all
 else
