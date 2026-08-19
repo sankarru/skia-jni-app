@@ -93,6 +93,30 @@ ninja -C out/android-arm64 -j"$JOBS" skia
 SKIA_OUT="$SKIA_DIR/out/android-arm64"
 echo ">>> Skia built: $(ls -lh "$SKIA_OUT/libskia.a" 2>/dev/null || echo 'not found')"
 
+# ── 4.5 Build Yoga flexbox layout static lib ─────────────────────────
+# Yoga is the flexbox engine used by React Native for layout.
+YOGA_DIR="${YOGA_DIR:-$HOME/yoga}"
+if [ ! -d "$YOGA_DIR/yoga/YGNode.cpp" ] || [ ! -f "$YOGA_DIR/yoga/YGNode.cpp" ]; then
+    echo ">>> Cloning Yoga..."
+    rm -rf "$YOGA_DIR"
+    git clone --depth 1 https://github.com/facebook/yoga.git "$YOGA_DIR"
+fi
+YOGA_LIB="$SCRIPT_DIR/build/yoga/libyoga.a"
+echo ">>> Building libyoga.a..."
+mkdir -p "$SCRIPT_DIR/build/yoga" "$BUILD_DIR/yoga"
+YOGA_OBJ_DIR="$SCRIPT_DIR/build/yoga/obj"
+mkdir -p "$YOGA_OBJ_DIR"
+for f in $(find "$YOGA_DIR/yoga" -name "*.cpp"); do
+    o="$YOGA_OBJ_DIR/$(basename "$f" .cpp).o"
+    "$TOOLCHAIN_DIR/${TRIPLE}-clang++" -std=c++20 -fPIC -O2 -fno-omit-frame-pointer \
+        -fexceptions -frtti -ffunction-sections -fdata-sections \
+        -I"$YOGA_DIR" \
+        -I"$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include" \
+        -c "$f" -o "$o"
+done
+llvm-ar rcs "$YOGA_LIB" "$YOGA_OBJ_DIR"/*.o
+echo ">>> Yoga built: $(ls -lh "$YOGA_LIB" 2>/dev/null || echo 'not found')"
+
 # ── 5. Build JNI .so ───────────────────────────────────────────────
 echo ">>> Building libskia_jni.so..."
 BUILD_DIR="$SCRIPT_DIR/build"
@@ -116,13 +140,14 @@ fi
 HERMES_JSI="$HERMES_BUILD/jsi/libjsi.a"
 HERMES_BOOST=$(find "$HERMES_BUILD" -name "libboost_context.a" 2>/dev/null | head -1)
 
-CXXFLAGS="-std=c++17 -fPIC -O2 -DNDEBUG -Wall -Wextra \
+CXXFLAGS="-std=c++17 -fPIC -O2 -DNDEBUG -Wall -Wextra -frtti -fexceptions \
     -I${SKIA_DIR} \
     -I${SKIA_DIR}/include \
     -I${VK_INC} \
     -I${HERMES_INC} \
     -I${HERMES_JSI_INC} \
     -I${HERMES_PUBLIC_INC} \
+    -I${YOGA_DIR} \
     -I${NDK}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include"
 
 $TOOLCHAIN_DIR/${TRIPLE}-clang++ $CXXFLAGS -c "$SCRIPT_DIR/app/src/main/native/skia_jni.cpp" -o "$BUILD_DIR/skia_jni.o"
@@ -135,6 +160,7 @@ if [ -f "$HERMES_LIB" ]; then
         -o "$JNI_SO" "$BUILD_DIR/skia_jni.o" "$BUILD_DIR/vulkan_renderer.o" "$BUILD_DIR/hermes_bridge.o" \
         -L"$SKIA_OUT" -lskia \
         "$HERMES_LIB" ${HERMES_JSI:+"$HERMES_JSI"} ${HERMES_BOOST:+"$HERMES_BOOST"} \
+        "$YOGA_LIB" \
         -llog -landroid -ldl -lm -lz \
         -Wl,--gc-sections -Wl,--strip-all
 else
@@ -142,6 +168,7 @@ else
     $TOOLCHAIN_DIR/${TRIPLE}-clang++ -shared \
         -o "$JNI_SO" "$BUILD_DIR/skia_jni.o" "$BUILD_DIR/vulkan_renderer.o" \
         -L"$SKIA_OUT" -lskia \
+        "$YOGA_LIB" \
         -llog -landroid -ldl -lm -lz \
         -Wl,--gc-sections -Wl,--strip-all
 fi

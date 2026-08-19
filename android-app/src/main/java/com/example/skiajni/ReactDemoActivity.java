@@ -4,6 +4,8 @@ import android.app.Activity;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.view.View;
+import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -22,8 +24,8 @@ public class ReactDemoActivity extends Activity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
-        int W = dm.widthPixels;
-        int H = dm.heightPixels;
+        final int W = dm.widthPixels;
+        final int H = dm.heightPixels;
 
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(0xFF000000);
@@ -41,34 +43,65 @@ public class ReactDemoActivity extends Activity {
                 Gravity.TOP | Gravity.LEFT));
         setContentView(root);
 
+        // ── Cutout / safe-area fix ─────────────────────────────────
+        // The content is drawn fullscreen via Skia, so we offset the UI
+        // below the display cutout (notch) and above the system nav bar.
+        int[] top = {0};
+        int[] bottom = {0};
+        root.post(new Runnable() {
+            @Override public void run() {
+                WindowInsets insets = root.getRootWindowInsets();
+                if (insets != null) {
+                    int topInset = Math.max(
+                            insets.getSystemWindowInsetTop(),
+                            insets.getDisplayCutout() != null
+                                    ? insets.getDisplayCutout().getSafeInsetTop() : 0);
+                    int bottomInset = Math.max(
+                            insets.getSystemWindowInsetBottom(),
+                            insets.getDisplayCutout() != null
+                                    ? insets.getDisplayCutout().getSafeInsetBottom() : 0);
+                    top[0] = topInset;
+                    bottom[0] = bottomInset;
+                }
+                render(W, H, top[0], bottom[0], imageView, status);
+            }
+        });
+    }
+
+    private void render(int W, int H, int topInset, int bottomInset,
+                        ImageView imageView, TextView status) {
         try {
             long t0 = System.nanoTime();
-            // Load RN runtime from assets
             String runtime = loadAsset("rn_runtime.js");
 
             try (SkiaCanvas canvas = new SkiaCanvas(W, H);
                  JsCanvas js = new JsCanvas(W, H)) {
 
-                // Inject runtime
                 js.eval(runtime);
 
-                // Define component tree and render
+                // Root is laid out between top and bottom insets (height = H - top - bottom).
+                int contentH = H - topInset - bottomInset;
+
                 String appJs =
                     "var root = render(_handle, " +
-                    "  View({ style: { background: 0xFF0F172A, padding: 0, flexDirection: 'column' } }," +
-                    "    Header('React Native on Skia', 'Components parsed by Hermes, drawn via JNI')," +
+                    "  View({ style: { background: 0xFF0F172A, flexGrow: 1 } }," +
+                    "    Header('React Native on Skia', 'Yoga flexbox layout, drawn via JNI')," +
+                    "    Text({ style: { fontSize: 12, color: 0xFF64748B, marginTop: 20," +
+                    "      marginLeft: 16 } }, 'PERFORMANCE')," +
                     "    View({ style: { flexDirection: 'row', gap: 12, padding: 16 } }," +
                     "      StatCard('99%', 'CPU', 'Software raster')," +
                     "      StatCard('60fps', 'FPS', 'Vsync driven')," +
                     "      StatCard('1.4MB', 'APK', 'No WebView')" +
                     "    )," +
+                    "    Text({ style: { fontSize: 12, color: 0xFF64748B, marginTop: 20," +
+                    "      marginLeft: 16 } }, 'ACTIONS')," +
                     "    Button({ style: { background: 0xFF2563EB, color: 0xFFFFFFFF," +
                     "      fontSize: 15, fontWeight: 'bold', borderRadius: 8, padding: 14," +
-                    "      margin: 16, textAlign: 'center', borderWidth: 1, borderColor: 0xFF1976D2 } }," +
-                    "      'Render via Hermes + Skia')," +
-                    "    Footer('JSX parsed by Hermes · Flex layout · Skia draw · no HTML/CSS')" +
+                    "      margin: 16, borderWidth: 1, borderColor: 0xFF1976D2 } }," +
+                    "      'Render via Hermes + Yoga')," +
+                    "    Footer('Yoga flexbox · Hermes JS · Skia draw · no HTML/CSS')" +
                     "  )" +
-                    ", " + W + ", " + H + "); " +
+                    ", " + W + ", " + contentH + ", " + topInset + "); " +
                     "'ok'";
 
                 js.setCanvas(canvas);
