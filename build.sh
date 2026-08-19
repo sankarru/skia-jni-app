@@ -103,7 +103,7 @@ if [ ! -d "$YOGA_DIR/yoga/YGNode.cpp" ] || [ ! -f "$YOGA_DIR/yoga/YGNode.cpp" ];
 fi
 YOGA_LIB="$SCRIPT_DIR/build/yoga/libyoga.a"
 echo ">>> Building libyoga.a..."
-mkdir -p "$SCRIPT_DIR/build/yoga" "$BUILD_DIR/yoga"
+mkdir -p "$SCRIPT_DIR/build/yoga"
 YOGA_OBJ_DIR="$SCRIPT_DIR/build/yoga/obj"
 mkdir -p "$YOGA_OBJ_DIR"
 for f in $(find "$YOGA_DIR/yoga" -name "*.cpp"); do
@@ -114,7 +114,7 @@ for f in $(find "$YOGA_DIR/yoga" -name "*.cpp"); do
         -I"$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include" \
         -c "$f" -o "$o"
 done
-llvm-ar rcs "$YOGA_LIB" "$YOGA_OBJ_DIR"/*.o
+"$TOOLCHAIN_DIR/llvm-ar" rcs "$YOGA_LIB" "$YOGA_OBJ_DIR"/*.o
 echo ">>> Yoga built: $(ls -lh "$YOGA_LIB" 2>/dev/null || echo 'not found')"
 
 # ── 5. Build JNI .so ───────────────────────────────────────────────
