@@ -40,9 +40,9 @@ static void initMethods(JNIEnv* env) {
     sM.clear       = env->GetStaticMethodID(cls, "nClear",       "(JI)V");
     sM.fillRect    = env->GetStaticMethodID(cls, "nFillRect",    "(JFFFFI)V");
     sM.fillCircle  = env->GetStaticMethodID(cls, "nFillCircle",  "(JFFFI)V");
-    sM.drawRect    = env->GetStaticMethodID(cls, "nDrawRect",    "(JFFFFIFI)V");
-    sM.drawCircle  = env->GetStaticMethodID(cls, "nDrawCircle",  "(JFFFIFI)V");
-    sM.drawLine    = env->GetStaticMethodID(cls, "nDrawLine",    "(JFFFFIFI)V");
+    sM.drawRect    = env->GetStaticMethodID(cls, "nDrawRect",    "(JFFFFIF)V");
+    sM.drawCircle  = env->GetStaticMethodID(cls, "nDrawCircle",  "(JFFFIF)V");
+    sM.drawLine    = env->GetStaticMethodID(cls, "nDrawLine",    "(JFFFFIF)V");
     sM.drawText    = env->GetStaticMethodID(cls, "nDrawText",    "(JLjava/lang/String;FFIF)V");
     sM.measureText = env->GetStaticMethodID(cls, "nMeasureText", "(Ljava/lang/String;F)F");
 }
