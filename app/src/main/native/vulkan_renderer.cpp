@@ -271,6 +271,8 @@ Java_com_example_skiajni_VulkanSurfaceView_nRender(JNIEnv* env, jobject, jlong h
                                          kRGBA_8888_SkColorType, kPremul_SkAlphaType);
     auto surf = SkSurfaces::RenderTarget(r->grContext.get(), skgpu::Budgeted::kNo, info);
     if (!surf) { LOGE("offscreen RenderTarget failed"); return nullptr; }
+    LOGI("surface info: %dx%d colorType=%d alphaType=%d",
+         surf->width(), surf->height(), (int)surf->imageInfo().colorType(), (int)surf->imageInfo().alphaType());
 
     auto* canvas = surf->getCanvas();
     canvas->clear(SkColorSetARGB(255, 18, 18, 18));
