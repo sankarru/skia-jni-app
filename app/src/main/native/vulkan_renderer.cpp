@@ -144,8 +144,8 @@ struct VulkanRenderer {
 };
 
 template <typename T>
-static T loadInst(PFN_vkGetInstanceProcAddr p, const char* name) {
-    return reinterpret_cast<T>(p(VK_NULL_HANDLE, name));
+static T loadInst(PFN_vkGetInstanceProcAddr p, VkInstance inst, const char* name) {
+    return reinterpret_cast<T>(p(inst, name));
 }
 
 } // namespace
@@ -172,21 +172,24 @@ Java_com_example_skiajni_VulkanSurfaceView_nCreate(JNIEnv* env, jobject,
     app.apiVersion=VK_API_VERSION_1_1;
     VkInstanceCreateInfo ici{}; ici.sType=VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     ici.pApplicationInfo=&app; ici.enabledExtensionCount=2; ici.ppEnabledExtensionNames=instExts;
-    r->pCreateInstance = loadInst<PFN_vkCreateInstance>(r->pfnGetInstanceProcAddr, "vkCreateInstance");
+    r->pCreateInstance = loadInst<PFN_vkCreateInstance>(r->pfnGetInstanceProcAddr, VK_NULL_HANDLE, "vkCreateInstance");
     if (r->pCreateInstance(&ici,nullptr,&r->instance)!=VK_SUCCESS) {
         LOGE("vkCreateInstance failed"); delete r; return 0;
     }
-    r->pDestroyInstance = loadInst<PFN_vkDestroyInstance>(r->pfnGetInstanceProcAddr, "vkDestroyInstance");
-    r->pEnumPhys = loadInst<PFN_vkEnumeratePhysicalDevices>(r->pfnGetInstanceProcAddr, "vkEnumeratePhysicalDevices");
-    r->pGetQueueProps = loadInst<PFN_vkGetPhysicalDeviceQueueFamilyProperties>(r->pfnGetInstanceProcAddr, "vkGetPhysicalDeviceQueueFamilyProperties");
-    r->pGetSurfaceSupport = loadInst<PFN_vkGetPhysicalDeviceSurfaceSupportKHR>(r->pfnGetInstanceProcAddr, "vkGetPhysicalDeviceSurfaceSupportKHR");
-    r->pGetSurfaceFormats = loadInst<PFN_vkGetPhysicalDeviceSurfaceFormatsKHR>(r->pfnGetInstanceProcAddr, "vkGetPhysicalDeviceSurfaceFormatsKHR");
-    r->pGetSurfaceCaps = loadInst<PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR>(r->pfnGetInstanceProcAddr, "vkGetPhysicalDeviceSurfaceCapabilitiesKHR");
-    r->pCreateDevice = loadInst<PFN_vkCreateDevice>(r->pfnGetInstanceProcAddr, "vkCreateDevice");
-    r->pGetDeviceQueue = loadInst<PFN_vkGetDeviceQueue>(r->pfnGetInstanceProcAddr, "vkGetDeviceQueue");
-    r->pDestroyDevice = loadInst<PFN_vkDestroyDevice>(r->pfnGetInstanceProcAddr, "vkDestroyDevice");
-    r->pDestroySurface = loadInst<PFN_vkDestroySurfaceKHR>(r->pfnGetInstanceProcAddr, "vkDestroySurfaceKHR");
-    r->pCreateAndroidSurface = loadInst<PFN_vkCreateAndroidSurfaceKHR>(r->pfnGetInstanceProcAddr, "vkCreateAndroidSurfaceKHR");
+    auto ipa = r->pfnGetInstanceProcAddr;
+    r->pDestroyInstance = loadInst<PFN_vkDestroyInstance>(ipa, r->instance, "vkDestroyInstance");
+    r->pEnumPhys = loadInst<PFN_vkEnumeratePhysicalDevices>(ipa, r->instance, "vkEnumeratePhysicalDevices");
+    r->pGetQueueProps = loadInst<PFN_vkGetPhysicalDeviceQueueFamilyProperties>(ipa, r->instance, "vkGetPhysicalDeviceQueueFamilyProperties");
+    r->pGetSurfaceSupport = loadInst<PFN_vkGetPhysicalDeviceSurfaceSupportKHR>(ipa, r->instance, "vkGetPhysicalDeviceSurfaceSupportKHR");
+    r->pGetSurfaceFormats = loadInst<PFN_vkGetPhysicalDeviceSurfaceFormatsKHR>(ipa, r->instance, "vkGetPhysicalDeviceSurfaceFormatsKHR");
+    r->pGetSurfaceCaps = loadInst<PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR>(ipa, r->instance, "vkGetPhysicalDeviceSurfaceCapabilitiesKHR");
+    r->pCreateDevice = loadInst<PFN_vkCreateDevice>(ipa, r->instance, "vkCreateDevice");
+    r->pGetDeviceQueue = loadInst<PFN_vkGetDeviceQueue>(ipa, r->instance, "vkGetDeviceQueue");
+    r->pDestroyDevice = loadInst<PFN_vkDestroyDevice>(ipa, r->instance, "vkDestroyDevice");
+    r->pDestroySurface = loadInst<PFN_vkDestroySurfaceKHR>(ipa, r->instance, "vkDestroySurfaceKHR");
+    r->pCreateAndroidSurface = loadInst<PFN_vkCreateAndroidSurfaceKHR>(ipa, r->instance, "vkCreateAndroidSurfaceKHR");
+    r->pGetDeviceProcAddr = loadInst<PFN_vkGetDeviceProcAddr>(ipa, r->instance, "vkGetDeviceProcAddr");
+    if (!r->pCreateAndroidSurface) { LOGE("vkCreateAndroidSurfaceKHR not available"); return 0; }
 
     // ── Surface ─────────────────────────────────────────────────────
     VkAndroidSurfaceCreateInfoKHR sci{}; sci.sType=VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
