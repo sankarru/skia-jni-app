@@ -297,6 +297,8 @@ Java_com_example_skiajni_VulkanSurfaceView_nRender(JNIEnv* env, jobject, jlong h
     SkPixmap pm(info, dst, info.minRowBytes());
     bool ok = surf->readPixels(pm, 0, 0);
     env->ReleaseByteArrayElements(out, dst, 0);
+    LOGI("nRender size=%d readPixels=%d p0=%02x%02x%02x", (int)size, (int)ok,
+         (unsigned char)dst[0], (unsigned char)dst[1], (unsigned char)dst[2]);
     return ok ? out : nullptr;
 }
 
