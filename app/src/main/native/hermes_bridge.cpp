@@ -248,6 +248,10 @@ Java_com_example_skiajni_JsCanvas_nCreate(JNIEnv* env, jclass, jint w, jint h) {
         makeHost(ctx, "ygSetHeight", [ygNode](JsCtx*, Runtime&, const Value* a, size_t) {
             YGNodeStyleSetHeight(ygNode(a), (float)num(a, 1)); return Value::undefined();
         }));
+    rt.global().setProperty(rt, "ygSetWidthPercent",
+        makeHost(ctx, "ygSetWidthPercent", [ygNode](JsCtx*, Runtime&, const Value* a, size_t) {
+            YGNodeStyleSetWidthPercent(ygNode(a), (float)num(a, 1)); return Value::undefined();
+        }));
     rt.global().setProperty(rt, "ygSetFlexDirection",
         makeHost(ctx, "ygSetFlexDirection", [ygNode, ygStr](JsCtx*, Runtime& rt, const Value* a, size_t) {
             YGNodeStyleSetFlexDirection(ygNode(a), ygFlexDir(ygStr(rt, a)));

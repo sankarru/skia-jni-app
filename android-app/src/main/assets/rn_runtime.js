@@ -67,9 +67,10 @@ function ProgressBar(value, max, color, trackColor, h) {
   color = color || 0xFF7C3AED;
   trackColor = trackColor || 0xFFE2E8F0;
   h = h || 10;
-  var pct = Math.min(value / max, 1);
+  var pct = Math.min(value / max, 1) * 100;
   return View({ style: { height: h, borderRadius: h / 2, background: trackColor } },
-    View({ style: { height: h, borderRadius: h / 2, background: color, width: Math.floor(pct * 300) } })
+    View({ style: { height: h, borderRadius: h / 2, background: color,
+        widthPercent: Math.floor(pct) } })
   );
 }
 
@@ -154,6 +155,7 @@ function buildYoga(node) {
     var contentH = bfs * 1.4;
     var pad = s.padding || 16, bor = s.borderWidth || 0;
     if (s.width > 0) ygSetWidth(yn, s.width);
+    else if (s.widthPercent > 0) ygSetWidthPercent(yn, s.widthPercent);
     else ygSetWidth(yn, contentW + 2 * (pad + bor));
     if (s.height > 0) ygSetHeight(yn, s.height);
     else ygSetHeight(yn, contentH + 2 * (pad + bor));
@@ -174,6 +176,7 @@ function buildYoga(node) {
   ygSetPadding(yn, s.padding || 0);
   ygSetBorder(yn, s.borderWidth || 0);
   if (s.width > 0) ygSetWidth(yn, s.width);
+  else if (s.widthPercent > 0) ygSetWidthPercent(yn, s.widthPercent);
   if (s.height > 0) ygSetHeight(yn, s.height);
   if (s.flexGrow) ygSetFlexGrow(yn, s.flexGrow);
   if (s.flexShrink !== undefined) ygSetFlexShrink(yn, s.flexShrink);
@@ -196,12 +199,12 @@ function buildYoga(node) {
 
 // ── Renderer ──────────────────────────────────────────────────────────
 
-function renderNode(handle, node, absX, absY, topInset) {
+function renderNode(handle, node, absX, absY) {
   if (node == null || node._yoga == null) return;
   var s = node._style || {};
   var yn = node._yoga;
   var x = absX + ygGetLeft(yn);
-  var y = absY + ygGetTop(yn) + topInset;
+  var y = absY + ygGetTop(yn);
   var w = ygGetWidth(yn);
   var h = ygGetHeight(yn);
 
@@ -250,20 +253,19 @@ function renderNode(handle, node, absX, absY, topInset) {
   var kids = node.children || [];
   for (var i = 0; i < kids.length; i++) {
     if (kids[i] != null && typeof kids[i] !== "string") {
-      renderNode(handle, kids[i], x, y, topInset);
+      renderNode(handle, kids[i], x, y);
     }
   }
 }
 
 // ── Public API ────────────────────────────────────────────────────────
 
-function render(handle, root, vpW, vpH, topInset) {
-  topInset = topInset || 0;
+function render(handle, root, vpW, vpH) {
   clear(handle, root._style ? (root._style.background || 0xFFF8FAFC) : 0xFFF8FAFC);
   var rootY = buildYoga(root);
   ygSetWidth(rootY, vpW);
   ygSetHeight(rootY, vpH);
   ygCalculateLayout(rootY, vpW, vpH, 0);
-  renderNode(handle, root, 0, 0, topInset);
+  renderNode(handle, root, 0, 0);
   ygFreeRecursive(rootY);
 }
