@@ -3,7 +3,7 @@ set -euo pipefail
 
 # ── Config ──────────────────────────────────────────────────────────
 NDK="${NDK:-${ANDROID_NDK:-/opt/android-ndk-r29}}"
-API=21
+API=29
 ARCH=aarch64
 TARGET="${ARCH}-linux-android"
 TRIPLE="${TARGET}${API}"
