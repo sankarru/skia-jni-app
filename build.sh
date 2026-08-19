@@ -99,19 +99,18 @@ BUILD_DIR="$SCRIPT_DIR/build"
 OUT_DIR="$SCRIPT_DIR/libs"
 mkdir -p "$BUILD_DIR" "$OUT_DIR"
 
-JNI_SRC="$SCRIPT_DIR/app/src/main/native/skia_jni.cpp"
-JNI_OBJ="$BUILD_DIR/skia_jni.o"
-JNI_SO="$OUT_DIR/libskia_jni.so"
-
+VK_INC="${SKIA_DIR}/include/third_party/vulkan"
 CXXFLAGS="-std=c++17 -fPIC -O2 -DNDEBUG -Wall -Wextra \
     -I${SKIA_DIR} \
     -I${SKIA_DIR}/include \
+    -I${VK_INC} \
     -I${NDK}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include"
 
-$TOOLCHAIN_DIR/${TRIPLE}-clang++ $CXXFLAGS -c "$JNI_SRC" -o "$JNI_OBJ"
+$TOOLCHAIN_DIR/${TRIPLE}-clang++ $CXXFLAGS -c "$SCRIPT_DIR/app/src/main/native/skia_jni.cpp" -o "$BUILD_DIR/skia_jni.o"
+$TOOLCHAIN_DIR/${TRIPLE}-clang++ $CXXFLAGS -c "$SCRIPT_DIR/app/src/main/native/vulkan_renderer.cpp" -o "$BUILD_DIR/vulkan_renderer.o"
 
 $TOOLCHAIN_DIR/${TRIPLE}-clang++ -shared \
-    -o "$JNI_SO" "$JNI_OBJ" \
+    -o "$JNI_SO" "$BUILD_DIR/skia_jni.o" "$BUILD_DIR/vulkan_renderer.o" \
     -L"$SKIA_OUT" -lskia \
     -llog -landroid -ldl -lm -lz \
     -Wl,--gc-sections -Wl,--strip-all
