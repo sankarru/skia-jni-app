@@ -6,6 +6,7 @@
 #include <vector>
 #include <map>
 #include <dlfcn.h>
+#include <android/log.h>
 
 // ── Skia core ──────────────────────────────────────────────────────
 #include "include/core/SkCanvas.h"
@@ -103,7 +104,10 @@ extern "C" {
 JNIEXPORT jlong JNICALL
 Java_com_example_skiajni_SkiaCanvas_nCreateRaster(JNIEnv*, jclass, jint w, jint h) {
     auto surf = SkSurfaces::Raster(SkImageInfo::MakeN32Premul(w, h), nullptr);
-    if (!surf) return 0;
+    if (!surf) {
+        __android_log_print(ANDROID_LOG_DEBUG, "SkiaJNI", "nCreateRaster FAILED %dx%d", w, h);
+        return 0;
+    }
     auto nc = new NativeCanvas();
     nc->backend = NativeCanvas::RASTER;
     nc->width = w;
@@ -121,7 +125,10 @@ Java_com_example_skiajni_SkiaCanvas_nDestroy(JNIEnv*, jclass, jlong h) {
 
 JNIEXPORT void JNICALL
 Java_com_example_skiajni_SkiaCanvas_nClear(JNIEnv*, jclass, jlong h, jint c) {
-    if (auto* c2 = getCanvas(h)) c2->clear(toARGB(c));
+    auto* c2 = getCanvas(h);
+    __android_log_print(ANDROID_LOG_DEBUG, "SkiaJNI", "nClear h=%lld canvas=%p color=%08x",
+                        (long long)h, (void*)c2, (unsigned)c);
+    if (c2) c2->clear(toARGB(c));
 }
 
 JNIEXPORT void JNICALL
