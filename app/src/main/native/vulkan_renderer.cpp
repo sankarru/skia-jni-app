@@ -155,11 +155,8 @@ static T loadInst(PFN_vkGetInstanceProcAddr p, VkInstance inst, const char* name
 extern "C" {
 
 JNIEXPORT jlong JNICALL
-Java_com_example_skiajni_VulkanSurfaceView_nCreate(JNIEnv* env, jobject,
-        jobject androidWindow, jint width, jint height) {
-    ANativeWindow* win = ANativeWindow_fromSurface(env, androidWindow);
-    if (!win) { LOGE("ANativeWindow_fromSurface failed"); return 0; }
-
+Java_com_example_skiajni_VulkanSurfaceView_nCreate(JNIEnv*, jobject,
+        jint width, jint height) {
     auto* r = new VulkanRenderer();
     r->vkLib = dlopen("libvulkan.so", RTLD_NOW | RTLD_GLOBAL);
     if (!r->vkLib) { LOGE("dlopen libvulkan.so failed"); delete r; return 0; }
@@ -193,14 +190,9 @@ Java_com_example_skiajni_VulkanSurfaceView_nCreate(JNIEnv* env, jobject,
     r->pGetDeviceProcAddr = loadInst<PFN_vkGetDeviceProcAddr>(ipa, r->instance, "vkGetDeviceProcAddr");
     if (!r->pCreateAndroidSurface) { LOGE("vkCreateAndroidSurfaceKHR not available"); return 0; }
 
-    // ── Surface ─────────────────────────────────────────────────────
-    VkAndroidSurfaceCreateInfoKHR sci{}; sci.sType=VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
-    sci.window=win;
-    if (r->pCreateAndroidSurface(r->instance,&sci,nullptr,&r->surface)!=VK_SUCCESS) {
-        LOGE("vkCreateAndroidSurfaceKHR failed"); r->pDestroyInstance(r->instance,nullptr); delete r; return 0;
-    }
-
-    // ── Physical device + queue family ──────────────────────────────
+    // ── Physical device + queue family (graphics only, no surface) ──
+    r->extent.width = (uint32_t)width;
+    r->extent.height = (uint32_t)height;
     uint32_t nDev=0; r->pEnumPhys(r->instance,&nDev,nullptr);
     std::vector<VkPhysicalDevice> devs(nDev); r->pEnumPhys(r->instance,&nDev,devs.data());
     if (nDev==0) { LOGE("no physical devices"); return 0; }
@@ -208,22 +200,16 @@ Java_com_example_skiajni_VulkanSurfaceView_nCreate(JNIEnv* env, jobject,
 
     uint32_t nQF=0; r->pGetQueueProps(r->physDev,&nQF,nullptr);
     std::vector<VkQueueFamilyProperties> qfp(nQF); r->pGetQueueProps(r->physDev,&nQF,qfp.data());
-    VkBool32 found=VK_FALSE;
     for (uint32_t i=0;i<nQF;i++) {
-        VkBool32 supports=VK_FALSE;
-        r->pGetSurfaceSupport(r->physDev,i,r->surface,&supports);
-        if ((qfp[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) && supports) { r->queueFamily=i; found=VK_TRUE; break; }
+        if (qfp[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) { r->queueFamily=i; break; }
     }
-    if (!found) { LOGE("no graphics+present queue"); return 0; }
 
     // ── Device ──────────────────────────────────────────────────────
     const float prio=1.0f;
     VkDeviceQueueCreateInfo dq{}; dq.sType=VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     dq.queueFamilyIndex=r->queueFamily; dq.queueCount=1; dq.pQueuePriorities=&prio;
-    const char* devExts[] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
     VkDeviceCreateInfo dci{}; dci.sType=VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     dci.queueCreateInfoCount=1; dci.pQueueCreateInfos=&dq;
-    dci.enabledExtensionCount=1; dci.ppEnabledExtensionNames=devExts;
     if (r->pCreateDevice(r->physDev,&dci,nullptr,&r->device)!=VK_SUCCESS) {
         LOGE("vkCreateDevice failed"); return 0;
     }
@@ -231,48 +217,10 @@ Java_com_example_skiajni_VulkanSurfaceView_nCreate(JNIEnv* env, jobject,
 
     // Device-level functions
     auto gdp = r->pGetDeviceProcAddr;
-    r->pCreateSwapchain = (PFN_vkCreateSwapchainKHR)gdp(r->device,"vkCreateSwapchainKHR");
     r->pGetSwapchainImages = (PFN_vkGetSwapchainImagesKHR)gdp(r->device,"vkGetSwapchainImagesKHR");
     r->pDestroySwapchain = (PFN_vkDestroySwapchainKHR)gdp(r->device,"vkDestroySwapchainKHR");
     r->pCreateImageView = (PFN_vkCreateImageView)gdp(r->device,"vkCreateImageView");
     r->pDestroyImageView = (PFN_vkDestroyImageView)gdp(r->device,"vkDestroyImageView");
-    r->pAcquireNextImage = (PFN_vkAcquireNextImageKHR)gdp(r->device,"vkAcquireNextImageKHR");
-    r->pQueuePresent = (PFN_vkQueuePresentKHR)gdp(r->device,"vkQueuePresentKHR");
-
-    // ── Swapchain ───────────────────────────────────────────────────
-    VkSurfaceCapabilitiesKHR caps{};
-    r->pGetSurfaceCaps(r->physDev,r->surface,&caps);
-    uint32_t nFmt=0; r->pGetSurfaceFormats(r->physDev,r->surface,&nFmt,nullptr);
-    std::vector<VkSurfaceFormatKHR> fmts(nFmt); r->pGetSurfaceFormats(r->physDev,r->surface,&nFmt,fmts.data());
-    r->format = fmts[0].format;
-    r->extent.width = std::min((uint32_t)width, caps.maxImageExtent.width);
-    r->extent.height = std::min((uint32_t)height, caps.maxImageExtent.height);
-    if (r->extent.width==0) r->extent.width=caps.currentExtent.width;
-    if (r->extent.height==0) r->extent.height=caps.currentExtent.height;
-
-    VkSwapchainCreateInfoKHR sw{}; sw.sType=VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-    sw.surface=r->surface; sw.minImageCount=2; sw.imageFormat=r->format;
-    sw.imageColorSpace=fmts[0].colorSpace; sw.imageExtent=r->extent;
-    sw.imageArrayLayers=1; sw.imageUsage=VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-    sw.imageSharingMode=VK_SHARING_MODE_EXCLUSIVE; sw.preTransform=caps.currentTransform;
-    sw.compositeAlpha=VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; sw.presentMode=VK_PRESENT_MODE_FIFO_KHR;
-    sw.clipped=VK_TRUE; sw.oldSwapchain=VK_NULL_HANDLE;
-    if (r->pCreateSwapchain(r->device,&sw,nullptr,&r->swapchain)!=VK_SUCCESS) {
-        LOGE("vkCreateSwapchainKHR failed"); return 0;
-    }
-    uint32_t nImg=0; r->pGetSwapchainImages(r->device,r->swapchain,&nImg,nullptr);
-    r->images.resize(nImg); r->pGetSwapchainImages(r->device,r->swapchain,&nImg,r->images.data());
-
-    // Image views
-    for (auto img : r->images) {
-        VkImageViewCreateInfo iv{}; iv.sType=VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        iv.image=img; iv.viewType=VK_IMAGE_VIEW_TYPE_2D; iv.format=r->format;
-        iv.subresourceRange.aspectMask=VK_IMAGE_ASPECT_COLOR_BIT;
-        iv.subresourceRange.levelCount=1; iv.subresourceRange.layerCount=1;
-        VkImageView v;
-        r->pCreateImageView(r->device,&iv,nullptr,&v);
-        r->imageViews.push_back(v);
-    }
 
     // ── Skia GrDirectContext ────────────────────────────────────────
     skgpu::VulkanBackendContext backend{};
